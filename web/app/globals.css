@@ -1,0 +1,386 @@
+@import "tailwindcss";
+
+/* ================================================
+   SilentGuard Lab – Design System
+   Sesuai DESIGN.md: gelap, frosted glass, cetak biru
+   ================================================ */
+
+@theme {
+  --color-midnight-canvas: #05060f;
+  --color-steel-plate: #2f343e;
+  --color-fog-veil: #9da7ba;
+  --color-moon-mist: #c7d3ea;
+  --color-frost-glow: #d1e4fa;
+  --color-ice-highlight: #d8ecf8;
+  --color-void-violet: #663af3;
+  --color-status-safe: #269684;
+  --color-status-warn: rgba(228, 109, 76, 0.7);
+  --color-status-alert: #e46d4c;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --radius-card: 16px;
+  --radius-badge: 6px;
+}
+
+:root {
+  --gradient-skywash: linear-gradient(0deg, #d8ecf8 0%, #98c0ef 100%);
+  --color-glass-edge: rgba(186, 215, 247, 0.12);
+  --color-luminous-fill: rgba(199, 211, 234, 0.12);
+  --surface-frosted-glass: rgba(186, 214, 247, 0.03);
+  --surface-deep-glass: rgba(5, 6, 15, 0.97);
+  --page-max-width: 1200px;
+  --section-gap: 120px;
+  --card-padding: 24px;
+  --element-gap: 16px;
+
+  /* Elevasi */
+  --shadow-card: inset 0 1px 1px rgba(199, 211, 234, 0.12),
+    inset 0 24px 48px rgba(199, 211, 234, 0.05),
+    0 24px 32px rgba(6, 6, 14, 0.7);
+  --shadow-modal: inset 0 1px 1px rgba(216, 236, 248, 0.2),
+    inset 0 24px 48px rgba(168, 216, 245, 0.06),
+    0 16px 32px rgba(0, 0, 0, 0.3);
+  --shadow-border: inset 0 0 0 1px rgba(186, 215, 247, 0.12);
+  --shadow-glow: 0 0 6px rgba(186, 207, 247, 0.32),
+    0 0 12px rgba(238, 186, 247, 0.24);
+}
+
+/* ---- Base ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-midnight-canvas);
+  color: var(--color-frost-glow);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: -0.16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ---- Latar grid cetak biru ---- */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image:
+    linear-gradient(rgba(186, 215, 247, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(186, 215, 247, 0.06) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, black 30%, transparent 80%);
+}
+
+/* Spotlight kerucut */
+body::after {
+  content: "";
+  position: fixed;
+  top: -20%;
+  left: 0;
+  right: 0;
+  height: 80vh;
+  z-index: -1;
+  background: conic-gradient(
+    at 50% -5%,
+    transparent 45%,
+    rgba(124, 145, 182, 0.15) 49%,
+    rgba(124, 145, 182, 0.25) 50%,
+    rgba(124, 145, 182, 0.15) 51%,
+    transparent 55%
+  );
+  pointer-events: none;
+}
+
+/* ---- Kartu Kaca ---- */
+.glass-card {
+  position: relative;
+  background: var(--surface-frosted-glass);
+  border-radius: var(--radius-card);
+  padding: var(--card-padding);
+  box-shadow: var(--shadow-card), var(--shadow-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ---- Tombol Pil Ghost ---- */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+  background: rgba(186, 214, 247, 0.06);
+  box-shadow: var(--shadow-border);
+  transition: background 200ms ease, box-shadow 200ms ease;
+}
+.btn-ghost:hover {
+  background: rgba(186, 214, 247, 0.12);
+}
+.btn-ghost:focus-visible {
+  outline: 2px solid var(--color-void-violet);
+  outline-offset: 2px;
+}
+.btn-ghost:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Tombol Aksi Utama ---- */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  background: var(--color-void-violet);
+  box-shadow: 0 0 20px rgba(102, 58, 243, 0.3);
+  transition: background 200ms ease, box-shadow 200ms ease, transform 100ms ease;
+}
+.btn-primary:hover {
+  background: #7b4ff5;
+  box-shadow: 0 0 30px rgba(102, 58, 243, 0.5);
+}
+.btn-primary:active {
+  transform: scale(0.97);
+}
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-void-violet);
+  outline-offset: 2px;
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Badge Status ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-badge);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-frost-glow);
+  background: var(--color-luminous-fill);
+  box-shadow: var(--shadow-border);
+}
+
+/* ---- Label Eyebrow ---- */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--color-moon-mist);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.eyebrow::before,
+.eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-glass-edge),
+    transparent
+  );
+}
+
+/* ---- Angka Display ---- */
+.display-number {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.17;
+}
+
+/* ---- Wordmark Gradient ---- */
+.skywash-text {
+  background: var(--gradient-skywash);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---- Status Colors ---- */
+.status-safe { color: var(--color-status-safe); }
+.status-warn { color: var(--color-status-warn); }
+.status-alert { color: var(--color-status-alert); }
+
+.bg-status-safe { background-color: var(--color-status-safe); }
+.bg-status-warn { background-color: var(--color-status-warn); }
+.bg-status-alert { background-color: var(--color-status-alert); }
+
+/* ---- Pulse animation ---- */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* ---- Glow waveform ---- */
+@keyframes glow-warn {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(228, 109, 76, 0.3)); }
+  50% { filter: drop-shadow(0 0 12px rgba(228, 109, 76, 0.5)); }
+}
+@keyframes glow-alert {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(228, 109, 76, 0.5)); }
+  50% { filter: drop-shadow(0 0 20px rgba(228, 109, 76, 0.8)); }
+}
+
+/* ---- Dot pulse ---- */
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+}
+.dot-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+
+/* ---- Drawer ---- */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(5, 6, 15, 0.7);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+}
+.drawer-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 90vw);
+  z-index: 50;
+  background: var(--surface-deep-glass);
+  box-shadow: var(--shadow-modal);
+  backdrop-filter: blur(24px);
+  transform: translateX(100%);
+  transition: transform 300ms ease;
+  padding: 32px 24px;
+  overflow-y: auto;
+}
+.drawer-panel.open {
+  transform: translateX(0);
+}
+
+/* ---- Input / Slider ---- */
+.input-field {
+  background: rgba(199, 211, 234, 0.06);
+  border: none;
+  border-radius: var(--radius-badge);
+  padding: 8px 12px;
+  color: white;
+  font-size: 14px;
+  box-shadow: var(--shadow-border);
+  outline: none;
+  width: 100%;
+  transition: box-shadow 200ms ease;
+}
+.input-field:focus {
+  box-shadow: inset 0 0 0 1px rgba(186, 215, 247, 0.24);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(199, 211, 234, 0.12);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-void-violet);
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(102, 58, 243, 0.4);
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(186, 215, 247, 0.15);
+  border-radius: 999px;
+}
+
+/* ---- Error banner ---- */
+.error-banner {
+  background: rgba(228, 109, 76, 0.12);
+  border: 1px solid rgba(228, 109, 76, 0.3);
+  border-radius: var(--radius-badge);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--color-frost-glow);
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-slow,
+  .dot-pulse {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

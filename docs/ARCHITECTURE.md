@@ -4,8 +4,8 @@
 
 Dua bagian terpisah:
 
-- **Frontend (Next.js)**: menangkap mikrofon, menggambar waveform, menghitung skor keramaian, menjalankan logika alarm, dan memutar audio alarm.
-- **Backend (FastAPI, Python)**: memuat model `.joblib` dan `.pkl`, mengekstrak fitur audio, dan mengembalikan probabilitas berisik.
+- **Frontend (Next.js di folder `web/`)**: menangkap mikrofon, menggambar waveform, menghitung skor keramaian, menjalankan logika alarm, dan memutar audio alarm.
+- **Backend (FastAPI, Python di folder `backend/`)**: memuat model `.joblib` dan `.pkl` dari `model2.0/`, mengekstrak fitur audio, dan mengembalikan probabilitas berisik.
 
 Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi dipisah ke backend Python.
 
@@ -13,20 +13,20 @@ Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi di
  Mikrofon
     |
     v
-+--------------------------- Browser (Next.js) ---------------------------+
++----------------------------- Browser (Next.js) --------------------------+
 |  getUserMedia -> AudioContext                                           |
 |        |                                                                |
 |        +--> AnalyserNode -----------> Waveform canvas (60 fps, lokal)   |
 |        |                                                                |
-|        +--> AudioWorklet -> buffer PCM (mono, sample rate model)        |
+|        +--> AudioWorklet -> buffer PCM (mono, 22050 Hz)                 |
 |                                |                                        |
-|                                v  tiap HOP detik, kirim WINDOW detik    |
+|                                v  tiap 1.0s, kirim 5.0s audio           |
 |                      POST /predict (Int16 PCM)                          |
 |                                |                                        |
 |   skor keramaian <-- rata-rata <-- noise_probability                    |
 |        |                                                                |
 |        +--> Meter persentase                                            |
-|        +--> Alarm machine (ALARM_LOGIC.md) -> putar alarm1.mp3/alarm2   |
+|        +--> Alarm machine (ALARM_LOGIC.md) -> putar alarm 60% / 80%     |
 +-------------------------------------------------------------------------+
                                  |
                                  v
@@ -40,20 +40,22 @@ Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi di
 
 | Lapisan | Pilihan |
 |---|---|
-| Frontend | Next.js (App Router), TypeScript, Tailwind CSS v4 |
+| Frontend | Next.js (App Router), TypeScript, Tailwind CSS v4 di `web/` |
 | Audio di browser | Web Audio API: `getUserMedia`, `AnalyserNode`, `AudioWorklet` |
-| Backend | FastAPI, Uvicorn |
-| ML | scikit-learn, joblib, numpy (dan librosa jika dipakai saat training); versi dikunci sama dengan training |
+| Backend | FastAPI, Uvicorn di `backend/` |
+| ML | scikit-learn (1.6.1), joblib, numpy, librosa (model dibaca dari `model2.0/` via env `MODEL_DIR`) |
 | Deploy | Lihat `DEPLOY.md` |
 
 ## 3. Struktur repo
 
 ```
-silentguard-lab/
+Audio-clasification/
   CLAUDE.md
   README.md
   docs/                      # semua dokumen spesifikasi
-  frontend/                  # aplikasi Next.js
+  alrm/                      # audio alarm sumber (alarm60%.mp3, alarm80%.mp3)
+  model2.0/                  # file model trained (model_klasifikasi_berisik.joblib & .pkl)
+  web/                       # aplikasi Next.js (sebelumnya disebut frontend)
     app/
       layout.tsx
       page.tsx               # dashboard
@@ -81,9 +83,6 @@ silentguard-lab/
     inference.py             # muat model dan prediksi
     features.py              # ekstraksi fitur (salinan dari training)
     requirements.txt
-    models/
-      model.joblib
-      <nama>.pkl
     tests/
       test_parity.py
       golden.json
@@ -95,8 +94,8 @@ silentguard-lab/
 
 Request:
 - Header `Content-Type: application/octet-stream`
-- Header `X-Sample-Rate: <angka>` (harus sama dengan sample rate di `MODEL_SPEC.md`)
-- Body: audio mono, Int16 little-endian PCM, panjang sesuai `WINDOW_SECONDS`
+- Header `X-Sample-Rate: 22050` (harus sama dengan sample rate model)
+- Body: audio mono, Int16 little-endian PCM, panjang sesuai `WINDOW_SECONDS` (default 5.0 detik = 110.250 sampel = 220.500 bytes)
 
 Response 200:
 ```json
@@ -116,23 +115,23 @@ Error:
 ### `GET /health`
 
 ```json
-{ "status": "ok", "model_loaded": true, "sklearn_version": "x.y.z" }
+{ "status": "ok", "model_loaded": true, "sklearn_version": "1.6.1" }
 ```
 
-Dipakai tombol "Tes koneksi" di UI dan untuk membangunkan backend gratis yang sedang tidur.
+Dipakai tombol "Tes koneksi" di UI dan untuk pemantauan ketersediaan backend.
 
 ## 5. Alur data detail
 
-1. Pengguna menekan Mulai. Frontend membuat `AudioContext` dengan sample rate model (jika browser tidak mendukung, lakukan resample di worklet).
+1. Pengguna menekan Mulai. Frontend membuat `AudioContext` dengan sample rate model 22050 Hz (jika browser default pada 44100/48000 Hz, `AudioWorklet` melakukan downsampling ke 22050 Hz).
 2. `AudioWorklet` mengumpulkan sampel mono ke ring buffer.
-3. Setiap `HOP_SECONDS` (default 1 detik), frontend mengambil `WINDOW_SECONDS` terakhir, mengonversi Float32 ke Int16, dan mengirim ke `/predict`.
+3. Setiap `HOP_SECONDS` (default 1 detik), frontend mengambil `WINDOW_SECONDS` terakhir (default 5 detik), mengonversi Float32 ke Int16, dan mengirim ke `/predict`.
 4. Respons masuk ke `smoothing.ts` (rata-rata `SMOOTHING_WINDOW` nilai terakhir) menjadi skor 0 sampai 100.
-5. Skor dikirim ke `NoiseMeter` dan `alarm-machine.ts`. Jika mesin mengembalikan `play`, `alarm-player.ts` memutar file audio yang sesuai.
-6. Waveform berjalan terpisah di `requestAnimationFrame`, dari `AnalyserNode`, sehingga tetap mulus walau backend lambat.
+5. Skor dikirim ke `NoiseMeter` dan `alarm-machine.ts`. Jika mesin mengembalikan `play`, `alarm-player.ts` memutar file audio yang sesuai (`alarm-60.mp3` atau `alarm-80.mp3`).
+6. Waveform berjalan terpisah di `requestAnimationFrame`, dari `AnalyserNode`, sehingga tetap mulus 60 fps walau panggilan jaringan backend memakan waktu.
 
 ## 6. Konfigurasi
 
-`frontend/.env.local`:
+`web/.env.local`:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
@@ -140,10 +139,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 `backend/.env` (atau variabel lingkungan di host):
 ```
 ALLOWED_ORIGINS=http://localhost:3000
+MODEL_DIR=../model2.0
 ```
 
-`frontend/lib/config.ts` berisi nilai yang berasal dari `MODEL_SPEC.md` dan `ALARM_LOGIC.md`:
-`SAMPLE_RATE`, `WINDOW_SECONDS`, `HOP_SECONDS`, `THRESHOLD_1`, `THRESHOLD_2`, `CALM_HOLD_SECONDS`, `SMOOTHING_WINDOW`, `JUMP_TO_ALARM_2`.
+`web/lib/config.ts` berisi nilai yang berasal dari `MODEL_SPEC.md` dan `ALARM_LOGIC.md`:
+`SAMPLE_RATE = 22050`, `WINDOW_SECONDS = 5.0`, `HOP_SECONDS = 1.0`, `THRESHOLD_1 = 60`, `THRESHOLD_2 = 80`, `CALM_HOLD_SECONDS = 3`, `SMOOTHING_WINDOW = 5`, `JUMP_TO_ALARM_2 = true`.
 
 ## 7. Penanganan error
 
@@ -159,11 +159,11 @@ ALLOWED_ORIGINS=http://localhost:3000
 - Audio tidak disimpan di server maupun di browser. Backend memproses di memori dan membuangnya.
 - Tidak ada logging isi audio.
 - CORS dibatasi ke domain frontend lewat `ALLOWED_ORIGINS`.
-- Batasi ukuran body request di backend (potongan beberapa detik cukup puluhan KB).
-- Muat file model hanya dari folder `backend/models/` milik sendiri.
+- Batasi ukuran body request di backend.
+- Muat file model dari direktori `MODEL_DIR`.
 
 ## 9. Catatan performa
 
-- 1 detik audio mono 16 kHz Int16 kira-kira 32 KB. Satu request per detik ringan untuk jaringan lab biasa.
-- Muat model sekali saat startup, bukan per request.
-- Jika ekstraksi fitur memakai librosa, panggilan pertama bisa lambat karena inisialisasi; lakukan pemanasan (warm-up) saat startup.
+- 5 detik audio mono 22050 Hz Int16 kira-kira 220 KB. Satu request per detik sangat ringan untuk jaringan lokal lab.
+- Model dimuat sekali saat startup backend.
+- Ekstraksi fitur menggunakan STFT dan MFCC yang dioptimalkan dengan numpy dan librosa.
