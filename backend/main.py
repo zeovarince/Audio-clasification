@@ -11,10 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import inference
 
 # Konfigurasi CORS dari environment variable
-_env_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+_env_origins = os.environ.get("ALLOWED_ORIGINS", "*")
 ALLOWED_ORIGINS: List[str] = [origin.strip() for origin in _env_origins.split(",") if origin.strip()]
-if "*" not in ALLOWED_ORIGINS and "http://localhost:3000" not in ALLOWED_ORIGINS:
-    ALLOWED_ORIGINS.append("http://localhost:3000")
 
 
 @asynccontextmanager
@@ -38,8 +36,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_credentials=False,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

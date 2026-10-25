@@ -16,6 +16,7 @@ import {
 } from "@/lib/alarm-machine";
 import { createSmoother } from "@/lib/smoothing";
 import { createAlarmPlayer } from "@/lib/alarm-player";
+import { ApiError } from "@/lib/api";
 import {
   DEFAULT_THRESHOLD_1,
   DEFAULT_THRESHOLD_2,
@@ -128,6 +129,18 @@ export default function Home() {
         },
         onError: (err) => {
           console.error("Audio capture/predict error:", err);
+          if (err instanceof ApiError && err.kind === "network") {
+            setError(
+              "Server klasifikasi belum terjangkau. Jalankan backend FastAPI, lalu coba lagi."
+            );
+            return;
+          }
+          if (err instanceof ApiError && err.kind === "timeout") {
+            setError(
+              "Server klasifikasi terlalu lama merespons. Memeriksa koneksi lagi..."
+            );
+            return;
+          }
           setError("Server klasifikasi belum merespons. Memeriksa koneksi lagi...");
         },
       });

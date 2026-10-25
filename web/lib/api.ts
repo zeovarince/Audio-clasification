@@ -4,6 +4,19 @@
 
 import { API_URL, SAMPLE_RATE } from "./config";
 
+export type ApiErrorKind = "network" | "timeout" | "http";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: ApiErrorKind,
+    public readonly status?: number
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export interface PredictResponse {
   noise_probability: number;
   label: string;
@@ -40,10 +53,26 @@ export async function predict(
 
     if (!response.ok) {
       const detail = await response.text().catch(() => "Unknown error");
-      throw new Error(`Backend error ${response.status}: ${detail}`);
+      throw new ApiError(
+        `Backend error ${response.status}: ${detail}`,
+        "http",
+        response.status
+      );
     }
 
     return response.json();
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(
+        "Server klasifikasi tidak merespons dalam batas waktu.",
+        "timeout"
+      );
+    }
+    throw new ApiError(
+      `Backend tidak dapat dijangkau di ${API_URL}. Pastikan server FastAPI sudah berjalan.`,
+      "network"
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -61,9 +90,25 @@ export async function healthCheck(): Promise<HealthResponse> {
       signal: controller.signal,
     });
     if (!response.ok) {
-      throw new Error(`Health check failed: ${response.status}`);
+      throw new ApiError(
+        `Health check failed: ${response.status}`,
+        "http",
+        response.status
+      );
     }
     return response.json();
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(
+        "Pemeriksaan koneksi melewati batas waktu.",
+        "timeout"
+      );
+    }
+    throw new ApiError(
+      `Backend tidak dapat dijangkau di ${API_URL}. Pastikan server FastAPI sudah berjalan.`,
+      "network"
+    );
   } finally {
     clearTimeout(timeout);
   }
