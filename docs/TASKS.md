@@ -75,10 +75,10 @@ Skenario uji lapangan (isi hasil di kolom kanan):
 
 ## Fase 6: Deploy
 
-- [ ] 6.1 Ikuti `DEPLOY.md` Rencana A (full Vercel); jika ukuran melebihi batas, pindah ke Rencana B
-- [ ] 6.2 Atur environment variable dan CORS di produksi
+- [x] 6.1 Ikuti `DEPLOY.md` (siapkan `Dockerfile` dan `vercel.json` produksi)
+- [x] 6.2 Atur environment variable dan CORS di produksi (`ALLOWED_ORIGINS` & `.env.example`)
 - [ ] 6.3 Uji dari URL publik: izin mikrofon, `/health`, `/predict`, alarm
-- [ ] 6.4 Tulis `README.md` (cara menjalankan lokal, URL demo, cara membangunkan backend)
+- [x] 6.4 Tulis `README.md` (cara menjalankan lokal, panduan deploy, informasi tim & kampus)
 
 Selesai jika: seluruh alur berjalan dari URL publik di Chrome.
 

@@ -132,7 +132,7 @@ export default function Waveform({ analyser, isActive, alarmState }: WaveformPro
             pointerEvents: "none",
           }}
         >
-          Tekan Mulai Pemantauan untuk mulai mendengarkan.
+          Menghubungkan mikrofon secara otomatis...
         </div>
       )}
     </div>

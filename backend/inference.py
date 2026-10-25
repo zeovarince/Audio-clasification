@@ -13,7 +13,9 @@ _env_model_dir = os.environ.get("MODEL_DIR", "../model2.0")
 _candidate_dirs = [
     Path(_env_model_dir).resolve(),
     Path(__file__).resolve().parent.parent / "model2.0",
+    Path(__file__).resolve().parent / "models",
     Path("model2.0").resolve(),
+    Path("models").resolve(),
 ]
 
 MODEL_DIR = None

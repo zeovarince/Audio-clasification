@@ -4,17 +4,17 @@ import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-untitled-sans",
   weight: ["400", "500", "600"],
 });
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  variable: "--font-aeonikpro",
   weight: ["400", "500"],
 });
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  variable: "--font-dotdigital",
   weight: ["400"],
 });
 
@@ -22,6 +22,11 @@ export const metadata: Metadata = {
   title: "SilentGuard Lab – Pemantau Kebisingan Lab",
   description:
     "Sistem pemantau kebisingan lab berbasis browser. Deteksi suara berisik secara real-time dengan akurasi 92%.",
+  icons: {
+    icon: "/logosilent.png",
+    shortcut: "/logosilent.png",
+    apple: "/logosilent.png",
+  },
 };
 
 export default function RootLayout({

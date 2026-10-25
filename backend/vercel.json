@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "main.py": {
+      "maxDuration": 15,
+      "excludeFiles": "{tests/**,notebooks/**,data/**,**/*.ipynb,**/__pycache__/**}"
+    }
+  }
+}
