@@ -1,0 +1,29 @@
+record_id,file_name,label,source_group,leakage_group,prediction,correct
+berisik/24-007 berisikk 1.mp3,24-007 berisikk 1.mp3,berisik,24-007,24-007,non berisik,False
+berisik/24-007 berisikkk 2.mp3,24-007 berisikkk 2.mp3,berisik,24-007,24-007,non berisik,False
+berisik/24-007 berisikkk 3.mp3,24-007 berisikkk 3.mp3,berisik,24-007,24-007,non berisik,False
+berisik/24-034 berisik 2.mp3,24-034 berisik 2.mp3,berisik,24-034,24-034,non berisik,False
+berisik/24-034 berisik 3.mp3,24-034 berisik 3.mp3,berisik,24-034,24-034,non berisik,False
+berisik/24-101_rame 1.mp3,24-101_rame 1.mp3,berisik,24-101,24-101,non berisik,False
+berisik/24-101_rame 2.mp3,24-101_rame 2.mp3,berisik,24-101,24-101,non berisik,False
+berisik/24-101_rame 3.mp3,24-101_rame 3.mp3,berisik,24-101,24-101,non berisik,False
+berisik/24-141 berisik (1).mp3,24-141 berisik (1).mp3,berisik,24-141,24-141,berisik,True
+berisik/24-141 berisik (2).mp3,24-141 berisik (2).mp3,berisik,24-141,24-141,berisik,True
+berisik/24-141 berisik (3).mp3,24-141 berisik (3).mp3,berisik,24-141,24-141,berisik,True
+berisik/24-202_berisik 1.MP3,24-202_berisik 1.MP3,berisik,24-202,24-202,berisik,True
+berisik/24-202_berisik 2.MP3,24-202_berisik 2.MP3,berisik,24-202,24-202,non berisik,False
+berisik/24-202_berisik 3.MP3,24-202_berisik 3.MP3,berisik,24-202,24-202,berisik,True
+non-berisik/24-007 non-berisik 1.mp3,24-007 non-berisik 1.mp3,non berisik,24-007,24-007,non berisik,True
+non-berisik/24-007 non-berisik 2.mp3,24-007 non-berisik 2.mp3,non berisik,24-007,24-007,non berisik,True
+non-berisik/24-007 non-berisik 3.mp3,24-007 non-berisik 3.mp3,non berisik,24-007,24-007,non berisik,True
+non-berisik/24-034 non-berisik 2.mp3,24-034 non-berisik 2.mp3,non berisik,24-034,24-034,non berisik,True
+non-berisik/24-034 non-berisik 3.mp3,24-034 non-berisik 3.mp3,non berisik,24-034,24-034,non berisik,True
+non-berisik/24-101_sepi 1.mp3,24-101_sepi 1.mp3,non berisik,24-101,24-101,non berisik,True
+non-berisik/24-101_sepi 2.mp3,24-101_sepi 2.mp3,non berisik,24-101,24-101,non berisik,True
+non-berisik/24-101_sepi 3.mp3,24-101_sepi 3.mp3,non berisik,24-101,24-101,non berisik,True
+non-berisik/24-141 non-berisik (1).mp3,24-141 non-berisik (1).mp3,non berisik,24-141,24-141,berisik,False
+non-berisik/24-141 non-berisik (2).mp3,24-141 non-berisik (2).mp3,non berisik,24-141,24-141,berisik,False
+non-berisik/24-141 non-berisik (3).mp3,24-141 non-berisik (3).mp3,non berisik,24-141,24-141,berisik,False
+non-berisik/24-202_non berisik 1.MP3,24-202_non berisik 1.MP3,non berisik,24-202,24-202,non berisik,True
+non-berisik/24-202_non berisik 2.MP3,24-202_non berisik 2.MP3,non berisik,24-202,24-202,non berisik,True
+non-berisik/24-202_non berisik 3.MP3,24-202_non berisik 3.MP3,non berisik,24-202,24-202,non berisik,True

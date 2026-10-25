@@ -1,0 +1,206 @@
+{
+  "model": "SVC RBF in StandardScaler pipeline",
+  "selection": "GridSearchCV grouped 5-fold on training data only",
+  "best_cv_f1_macro": 0.7981723777785159,
+  "best_params": {
+    "svc__C": 1,
+    "svc__gamma": "scale"
+  },
+  "random_seed": 42,
+  "split_strategy": "70/15/15; StratifiedGroupKFold 7-fold candidate pairs, grouped by source and exact duplicate audio",
+  "target_split_proportions": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "selected_folds": {
+    "validation": 1,
+    "test": 4,
+    "random_state": 45
+  },
+  "split_candidate_seed_trials": 500,
+  "train_records_unique_audio": 120,
+  "validation_records_unique_audio": 30,
+  "test_records_unique_audio": 28,
+  "raw_file_counts_by_split": {
+    "train": 140,
+    "validation": 30,
+    "test": 30
+  },
+  "raw_class_counts_by_split": {
+    "train": {
+      "non berisik": 70,
+      "berisik": 70
+    },
+    "validation": {
+      "non berisik": 15,
+      "berisik": 15
+    },
+    "test": {
+      "non berisik": 15,
+      "berisik": 15
+    }
+  },
+  "train_groups": 17,
+  "validation_groups": 5,
+  "test_groups": 5,
+  "exact_conflicting_hashes_excluded": [
+    "c963e6beecaa3b2cff4db82b8f86aafa4e50ab33ea7065e1bf73ee954a63830e"
+  ],
+  "features": [
+    "rms_overall",
+    "rms_frame_mean",
+    "rms_frame_std",
+    "rms_frame_min",
+    "rms_frame_max",
+    "centroid_mean",
+    "centroid_std",
+    "centroid_median",
+    "centroid_p10",
+    "centroid_p90",
+    "zcr_mean",
+    "zcr_std",
+    "zcr_median",
+    "zcr_p10",
+    "zcr_p90",
+    "mfcc_00",
+    "mfcc_01",
+    "mfcc_02",
+    "mfcc_03",
+    "mfcc_04",
+    "mfcc_05",
+    "mfcc_06",
+    "mfcc_07",
+    "mfcc_08",
+    "mfcc_09",
+    "mfcc_10",
+    "mfcc_11",
+    "mfcc_12"
+  ],
+  "feature_count": 28,
+  "feature_recipe": {
+    "RMS": "rms_overall plus mean/std/min/max of 1 s RMS frames at 0.5 s hop",
+    "spectral_centroid": "mean/std/median/p10/p90 across 1024-sample frames",
+    "ZCR": "mean/std/median/p10/p90 across 1024-sample frames",
+    "MFCC": "mean of C0-C12; 64 mel bands, log10 power, DCT-II orthonormal"
+  },
+  "preprocessing": {
+    "mono": "mean across channels",
+    "target_sample_rate": 16000,
+    "per_file_amplitude_normalization": false,
+    "window_seconds": 30.0,
+    "window_hop_seconds": 15.0,
+    "short_audio": "zero-pad to 30 s",
+    "long_audio": "30 s windows at 15 s hop; tail aligned to end if >=7.5 s remains"
+  },
+  "validation_metrics": {
+    "accuracy": 0.6666666666666666,
+    "precision_macro": 0.6666666666666666,
+    "recall_macro": 0.6666666666666666,
+    "f1_macro": 0.6666666666666666,
+    "precision_berisik": 0.6666666666666666,
+    "recall_berisik": 0.6666666666666666,
+    "f1_berisik": 0.6666666666666666,
+    "confusion_matrix": [
+      [
+        10,
+        5
+      ],
+      [
+        5,
+        10
+      ]
+    ],
+    "classification_report": {
+      "non berisik": {
+        "precision": 0.6666666666666666,
+        "recall": 0.6666666666666666,
+        "f1-score": 0.6666666666666666,
+        "support": 15.0
+      },
+      "berisik": {
+        "precision": 0.6666666666666666,
+        "recall": 0.6666666666666666,
+        "f1-score": 0.6666666666666666,
+        "support": 15.0
+      },
+      "accuracy": 0.6666666666666666,
+      "macro avg": {
+        "precision": 0.6666666666666666,
+        "recall": 0.6666666666666666,
+        "f1-score": 0.6666666666666666,
+        "support": 30.0
+      },
+      "weighted avg": {
+        "precision": 0.6666666666666666,
+        "recall": 0.6666666666666666,
+        "f1-score": 0.6666666666666666,
+        "support": 30.0
+      }
+    },
+    "record_count": 30,
+    "group_count": 5,
+    "evaluated_split": "validation",
+    "inference_seconds": 0.0006830000020272564,
+    "inference_ms_per_record": 0.02276666673424188
+  },
+  "test_metrics": {
+    "accuracy": 0.5714285714285714,
+    "precision_macro": 0.5875,
+    "recall_macro": 0.5714285714285714,
+    "f1_macro": 0.5508021390374331,
+    "precision_berisik": 0.625,
+    "recall_berisik": 0.35714285714285715,
+    "f1_berisik": 0.45454545454545453,
+    "confusion_matrix": [
+      [
+        11,
+        3
+      ],
+      [
+        9,
+        5
+      ]
+    ],
+    "classification_report": {
+      "non berisik": {
+        "precision": 0.55,
+        "recall": 0.7857142857142857,
+        "f1-score": 0.6470588235294118,
+        "support": 14.0
+      },
+      "berisik": {
+        "precision": 0.625,
+        "recall": 0.35714285714285715,
+        "f1-score": 0.45454545454545453,
+        "support": 14.0
+      },
+      "accuracy": 0.5714285714285714,
+      "macro avg": {
+        "precision": 0.5875,
+        "recall": 0.5714285714285714,
+        "f1-score": 0.5508021390374331,
+        "support": 28.0
+      },
+      "weighted avg": {
+        "precision": 0.5875000000000001,
+        "recall": 0.5714285714285714,
+        "f1-score": 0.5508021390374331,
+        "support": 28.0
+      }
+    },
+    "record_count": 28,
+    "group_count": 5,
+    "evaluated_split": "test",
+    "inference_seconds": 0.0005430000019259751,
+    "inference_ms_per_record": 0.019392857211641967
+  },
+  "versions": {
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "scipy": "1.15.3",
+    "soundfile": "0.14.0",
+    "scikit-learn": "1.7.2",
+    "joblib": "1.5.3"
+  }
+}

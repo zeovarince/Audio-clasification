@@ -1,10 +1,12 @@
-"""Ekstraksi fitur semua split dan optimasi model hanya pada train/validation.
+"""Utilitas reproducible untuk fitur audio 28 kolom dan klasifikasi SVM.
 
-Fitur test lama diekspor sebagai data deskriptif, tetapi tidak dipakai untuk
-fit, cross-validation, pemilihan model, atau evaluasi test independen baru.
-Letakkan test independen baru pada ../test_baru/{berisik,non-berisik}/.
+Fungsi-fungsi di file ini dipanggil bertahap dari klasifikasi.ipynb agar setiap
+tahap CRISP-DM dapat ditampilkan, diperiksa, dan dijalankan ulang di notebook.
 """
 
+from __future__ import annotations
+
+from functools import lru_cache
 from pathlib import Path
 import hashlib
 import importlib.metadata as package_metadata
@@ -32,76 +34,159 @@ from sklearn.svm import SVC
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 ARTIFACTS = HERE / "artifacts"
-CACHE = ARTIFACTS / "cache"
-MODEL_PATH = ARTIFACTS / "model_optimasi_train_validation.joblib"
-METADATA_PATH = ARTIFACTS / "metadata_optimasi_train_validation.json"
-COMPARISON_PATH = ARTIFACTS / "perbandingan_optimasi_train_validation.csv"
-FEATURES_PATH = ARTIFACTS / "dataset_fitur_audio.csv"
-NEW_TEST_PATH = ROOT / "test_baru"
-SR = 16000
+SAMPLE_RATE = 16_000
 WINDOW_SECONDS = 30.0
 WINDOW_HOP_SECONDS = 15.0
+RMS_FRAME_SECONDS = 1.0
+RMS_HOP_SECONDS = 0.5
 FFT_SIZE = 1024
 FFT_HOP_SIZE = 512
+N_MELS = 64
 N_MFCC = 13
-FEATURE_VERSION = "rms-centroid-zcr-mfcc13-mean-v2"
 SEED = 42
 CLASSES = ["non berisik", "berisik"]
-RMS_COLUMNS = ["rms_overall"]
+LABEL_FOLDERS = {"berisik": "berisik", "non berisik": "non-berisik"}
+AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac", ".wma"}
+
+RMS_COLUMNS = [
+    "rms_overall", "rms_frame_mean", "rms_frame_std",
+    "rms_frame_min", "rms_frame_max",
+]
+SUMMARY_NAMES = ["mean", "std", "median", "p10", "p90"]
+CENTROID_COLUMNS = [f"centroid_{name}" for name in SUMMARY_NAMES]
+ZCR_COLUMNS = [f"zcr_{name}" for name in SUMMARY_NAMES]
 MFCC_COLUMNS = [f"mfcc_{index:02d}" for index in range(N_MFCC)]
-ACOUSTIC_COLUMNS = ["rms_overall", "centroid_mean", "zcr_mean", *MFCC_COLUMNS]
-EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac", ".wma"}
+FEATURE_COLUMNS = RMS_COLUMNS + CENTROID_COLUMNS + ZCR_COLUMNS + MFCC_COLUMNS
+FEATURE_VERSION = "rms5-centroid5-zcr5-mfcc13-v3"
 
 
-def source_group(filename):
+def source_group(filename: str) -> str:
+    """Ambil ID sumber dari awalan nama seperti 24-027; fallback per file."""
     match = re.match(r"^(\d+-\d+)", Path(filename).name)
     return match.group(1) if match else "file:" + Path(filename).name
 
 
-def package_version(name):
-    try:
-        return package_metadata.version(name)
-    except package_metadata.PackageNotFoundError:
-        return None
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as audio_file:
+        for block in iter(lambda: audio_file.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
-def load_mono_16k(path):
-    samples, sample_rate = sf.read(str(path), dtype="float32", always_2d=True)
-    if samples.size == 0 or sample_rate <= 0:
-        raise ValueError(f"Audio kosong/tidak valid: {path}")
+def inventory_audio(root: Path = ROOT) -> pd.DataFrame:
+    """Audit file dan metadata dasar tanpa menyimpan path absolut ke CSV."""
+    rows = []
+    for label, folder_name in LABEL_FOLDERS.items():
+        folder = root / folder_name
+        if not folder.is_dir():
+            raise FileNotFoundError(f"Folder kelas tidak ditemukan: {folder_name}/")
+        for path in sorted(folder.rglob("*")):
+            if not path.is_file() or path.suffix.lower() not in AUDIO_EXTENSIONS:
+                continue
+            record_id = path.relative_to(root).as_posix()
+            row = {
+                "record_id": record_id,
+                "file_name": path.name,
+                "label": label,
+                "format": path.suffix.lower(),
+                "duration_seconds": np.nan,
+                "sample_rate": np.nan,
+                "channels": np.nan,
+                "file_size_bytes": path.stat().st_size,
+                "source_group": source_group(path.name),
+                "file_sha256": "",
+                "valid": False,
+                "clipped_fraction": np.nan,
+                "silent": False,
+                "error": "",
+                "_path": path,
+            }
+            try:
+                if row["file_size_bytes"] == 0:
+                    raise ValueError("file kosong (0 byte)")
+                info = sf.info(str(path))
+                if info.frames <= 0 or info.samplerate <= 0 or info.channels <= 0:
+                    raise ValueError("header audio tidak memiliki frame/sampling rate/kanal valid")
+                row.update({
+                    "duration_seconds": float(info.duration),
+                    "sample_rate": int(info.samplerate),
+                    "channels": int(info.channels),
+                    "valid": True,
+                    "file_sha256": sha256_file(path),
+                })
+            except Exception as exc:
+                row["error"] = f"{type(exc).__name__}: {exc}"
+            rows.append(row)
+    columns = [
+        "record_id", "file_name", "label", "format", "duration_seconds",
+        "sample_rate", "channels", "file_size_bytes", "source_group",
+        "file_sha256", "valid", "clipped_fraction", "silent", "error", "_path",
+    ]
+    return pd.DataFrame(rows, columns=columns)
+
+
+def load_mono_16k(path: Path) -> tuple[np.ndarray, dict]:
+    """Baca, sanitasi, konversi mono, lalu resample tanpa normalisasi gain."""
+    samples, original_rate = sf.read(str(path), dtype="float32", always_2d=True)
+    if samples.size == 0 or original_rate <= 0:
+        raise ValueError(f"Audio kosong/tidak valid: {path.name}")
     samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
+    # Ukur clipping proxy sebelum kanal dicampur agar clipping satu kanal tidak
+    # tertutupi oleh rata-rata stereo.
+    clipped_fraction = float(np.mean(np.abs(samples) >= 0.999))
     mono = samples.mean(axis=1, dtype=np.float32)
-    if int(sample_rate) != SR:
-        divisor = math.gcd(int(sample_rate), SR)
-        mono = resample_poly(mono, SR // divisor,
-                             int(sample_rate) // divisor).astype(np.float32)
-    if not np.isfinite(mono).all() or not mono.size:
-        raise ValueError(f"Waveform hasil preprocessing tidak valid: {path}")
-    return mono
+    if int(original_rate) != SAMPLE_RATE:
+        divisor = math.gcd(int(original_rate), SAMPLE_RATE)
+        mono = resample_poly(
+            mono, SAMPLE_RATE // divisor, int(original_rate) // divisor
+        ).astype(np.float32)
+    mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0)
+    if mono.size == 0 or not np.isfinite(mono).all():
+        raise ValueError(f"Waveform hasil preprocessing tidak valid: {path.name}")
+    return mono, {
+        "original_sample_rate": int(original_rate),
+        "original_channels": int(samples.shape[1]),
+        "clipped_fraction": clipped_fraction,
+        "silent": bool(np.sqrt(np.mean(mono.astype(np.float64) ** 2)) < 1e-5),
+    }
 
 
-def windows(waveform):
-    size = int(round(WINDOW_SECONDS * SR))
-    hop = int(round(WINDOW_HOP_SECONDS * SR))
+def audio_windows(waveform: np.ndarray) -> list[np.ndarray]:
+    """Window 30 dtk dengan hop 15 dtk; pad audio pendek, sertakan tail panjang."""
+    size = int(round(WINDOW_SECONDS * SAMPLE_RATE))
+    hop = int(round(WINDOW_HOP_SECONDS * SAMPLE_RATE))
     if len(waveform) <= size:
         return [np.pad(waveform, (0, size - len(waveform)))]
     starts = list(range(0, len(waveform) - size + 1, hop))
-    if len(waveform) - (starts[-1] + size) >= int(.25 * size):
+    if len(waveform) - (starts[-1] + size) >= int(0.25 * size):
         starts.append(len(waveform) - size)
-    return [waveform[s:s + size] for s in sorted(set(starts))]
+    return [waveform[start:start + size] for start in sorted(set(starts))]
 
 
-def rms_features(waveform):
-    """Satu nilai RMS keseluruhan per rekaman; tidak mengubah gain audio."""
-    clean = np.nan_to_num(np.asarray(waveform, dtype=np.float64), nan=0.0,
-                          posinf=0.0, neginf=0.0)
-    if clean.size == 0:
-        raise ValueError("Waveform kosong: RMS tidak dapat dihitung.")
-    return {"rms_overall": float(np.sqrt(np.mean(clean ** 2)))}
+def rms_features(waveform: np.ndarray) -> dict[str, float]:
+    """Lima RMS: RMS seluruh rekaman dan empat ringkasan RMS frame 1 dtk."""
+    frame_size = int(round(RMS_FRAME_SECONDS * SAMPLE_RATE))
+    hop = int(round(RMS_HOP_SECONDS * SAMPLE_RATE))
+    padded = waveform
+    if len(padded) < frame_size:
+        padded = np.pad(padded, (0, frame_size - len(padded)))
+    starts = np.arange(0, len(padded) - frame_size + 1, hop, dtype=int)
+    frame_values = np.stack([padded[start:start + frame_size] for start in starts])
+    frame_rms = np.sqrt(np.mean(frame_values.astype(np.float64) ** 2, axis=1))
+    return {
+        "rms_overall": float(np.sqrt(np.mean(waveform.astype(np.float64) ** 2))),
+        "rms_frame_mean": float(frame_rms.mean()),
+        "rms_frame_std": float(frame_rms.std()),
+        "rms_frame_min": float(frame_rms.min()),
+        "rms_frame_max": float(frame_rms.max()),
+    }
 
 
-def make_mel_filterbank(sample_rate=SR, n_fft=1024, n_mels=64,
-                        fmin=50.0, fmax=SR / 2):
+@lru_cache(maxsize=4)
+def make_mel_filterbank(sample_rate=SAMPLE_RATE, n_fft=FFT_SIZE,
+                        n_mels=N_MELS, fmin=50.0, fmax=SAMPLE_RATE / 2):
+    """Filterbank segitiga mel untuk spektrum daya."""
     def hz_to_mel(hz):
         return 2595.0 * np.log10(1.0 + hz / 700.0)
 
@@ -115,421 +200,440 @@ def make_mel_filterbank(sample_rate=SR, n_fft=1024, n_mels=64,
         left, center, right = edges[index:index + 3]
         bank[index] = np.maximum(0.0, np.minimum(
             (frequencies - left) / max(center - left, 1e-12),
-            (right - frequencies) / max(right - center, 1e-12)))
+            (right - frequencies) / max(right - center, 1e-12),
+        ))
     return bank, frequencies
 
 
-def acoustic_features(path):
-    """Ekstrak 16 fitur per rekaman: RMS, centroid, ZCR, dan MFCC C0-C12.
+def summarize_five(values: np.ndarray, prefix: str) -> dict[str, float]:
+    values = np.asarray(values, dtype=np.float64)
+    return {
+        f"{prefix}_mean": float(np.mean(values)),
+        f"{prefix}_std": float(np.std(values)),
+        f"{prefix}_median": float(np.median(values)),
+        f"{prefix}_p10": float(np.percentile(values, 10)),
+        f"{prefix}_p90": float(np.percentile(values, 90)),
+    }
 
-    Centroid, ZCR, dan setiap koefisien MFCC diringkas dengan satu nilai mean
-    atas seluruh frame dari seluruh window rekaman.
-    """
-    waveform = load_mono_16k(path)
+
+def acoustic_features(path: Path) -> tuple[dict[str, float], dict]:
+    """Hasilkan tepat 28 fitur numerik dengan satu resep per rekaman."""
+    waveform, quality = load_mono_16k(path)
     result = rms_features(waveform)
-    mfcc_frames = []
-    centroid_frames, zcr_frames = [], []
-    n_fft, hop = FFT_SIZE, FFT_HOP_SIZE
-    mel_bank, frequencies = make_mel_filterbank(n_fft=n_fft)
-    taper = np.hanning(n_fft).astype(np.float32)
-    for window in windows(waveform):
-        frames = np.lib.stride_tricks.sliding_window_view(window, n_fft)[::hop]
+    centroid_frames, zcr_frames, mfcc_frames = [], [], []
+    mel_bank, frequencies = make_mel_filterbank()
+    taper = np.hanning(FFT_SIZE).astype(np.float32)
+    for window in audio_windows(waveform):
+        frames = np.lib.stride_tricks.sliding_window_view(window, FFT_SIZE)[::FFT_HOP_SIZE]
         spectrum = np.fft.rfft(frames * taper, axis=1)
-        power = (np.abs(spectrum) ** 2) / n_fft
+        magnitude = np.abs(spectrum)
+        power = (magnitude ** 2) / FFT_SIZE
         mel_power = power @ mel_bank.T
         log_mel = 10.0 * np.log10(np.maximum(mel_power, 1e-10))
-        # Tiga belas koefisien, termasuk koefisien 0 (C0).
-        mfcc = dct(log_mel, type=2, axis=1, norm="ortho")[:, :N_MFCC].T
-        mfcc_frames.append(mfcc)
-        magnitude = np.abs(spectrum)
+        mfcc = dct(log_mel, type=2, axis=1, norm="ortho")[:, :N_MFCC]
         magnitude_sum = np.maximum(magnitude.sum(axis=1), 1e-12)
         centroid = (magnitude @ frequencies) / magnitude_sum
-        zero_crossing = (np.signbit(frames[:, 1:]) != np.signbit(frames[:, :-1])).mean(axis=1)
+        zcr = (np.signbit(frames[:, 1:]) != np.signbit(frames[:, :-1])).mean(axis=1)
         centroid_frames.append(centroid)
-        zcr_frames.append(zero_crossing)
-    pooled_mfcc = np.concatenate(mfcc_frames, axis=1)
-    result["centroid_mean"] = float(np.concatenate(centroid_frames).mean())
-    result["zcr_mean"] = float(np.concatenate(zcr_frames).mean())
-    result.update({column: float(pooled_mfcc[index].mean())
-                   for index, column in enumerate(MFCC_COLUMNS)})
-    if list(result) != ACOUSTIC_COLUMNS:
-        raise RuntimeError("Urutan kolom fitur akustik tidak sesuai konfigurasi.")
-    return result
+        zcr_frames.append(zcr)
+        mfcc_frames.append(mfcc)
 
-
-def metrics(y_true, y_pred):
-    precision, recall, f1, _ = precision_recall_fscore_support(
-        y_true, y_pred, labels=["berisik"], average=None, zero_division=0)
-    return {
-        "accuracy": float(accuracy_score(y_true, y_pred)),
-        "precision_berisik": float(precision[0]),
-        "recall_berisik": float(recall[0]),
-        "f1_berisik": float(f1[0]),
-        "f1_macro": float(f1_score(y_true, y_pred, labels=CLASSES,
-                                   average="macro", zero_division=0)),
-        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=CLASSES).tolist(),
-    }
-
-
-def tune_svm(X, y, groups):
-    folds = min(4, pd.Series(groups).nunique())
-    if folds < 2:
-        raise ValueError("Grup train tidak cukup untuk cross-validation.")
-    cv = StratifiedGroupKFold(n_splits=folds, shuffle=True, random_state=SEED)
-    pipe = Pipeline([
-        ("scaler", StandardScaler()),
-        ("svc", SVC(kernel="rbf", probability=False, random_state=SEED)),
-    ])
-    grid = {"svc__C": [.1, 1, 10, 100],
-            "svc__gamma": ["scale", .01, .1, 1]}
-    search = GridSearchCV(pipe, grid, scoring="f1_macro", cv=cv,
-                          n_jobs=1, refit=True, return_train_score=False)
-    search.fit(X, y, groups=groups)
-    return search
-
-
-def evaluate_new_test(bundle, existing_groups):
-    """Test baru dibaca setelah pemilihan model selesai; tidak melakukan tuning."""
-    class_dirs = {"berisik": NEW_TEST_PATH / "berisik",
-                  "non berisik": NEW_TEST_PATH / "non-berisik"}
-    if not all(folder.is_dir() for folder in class_dirs.values()):
-        relative_test_path = NEW_TEST_PATH.relative_to(ROOT).as_posix()
-        print(f"Test independen baru belum ada. Siapkan: {relative_test_path}/berisik dan "
-              f"{relative_test_path}/non-berisik")
-        return None
-    rows = []
-    for label, folder in class_dirs.items():
-        for path in sorted(folder.rglob("*")):
-            if path.is_file() and path.suffix.lower() in EXTENSIONS:
-                rows.append({"path": path, "record_id": path.relative_to(NEW_TEST_PATH).as_posix(),
-                             "label": label, "source_group": source_group(path.name)})
-    test = pd.DataFrame(rows)
-    if test.empty or set(test.label) != set(CLASSES):
-        raise ValueError("Test baru harus memuat audio valid di kedua folder kelas.")
-    manifest = NEW_TEST_PATH / "metadata.csv"
-    context_columns = ["device", "session", "room_context"]
-    if manifest.exists():
-        meta = pd.read_csv(manifest)
-        if {"record_id", "source_group"}.issubset(meta.columns):
-            meta["record_id"] = meta["record_id"].astype(str).str.replace("\\", "/", regex=False)
-            selected_metadata = ["record_id", "source_group"] + [
-                column for column in context_columns if column in meta.columns]
-            meta = meta[selected_metadata].rename(
-                columns={"source_group": "manifest_source_group"})
-            test = test.merge(meta, on="record_id", how="left", validate="one_to_one")
-            manifest_groups = test["manifest_source_group"].astype("string").str.strip()
-            manifest_groups = manifest_groups.mask(manifest_groups.eq(""))
-            test["source_group"] = manifest_groups.fillna(test["source_group"])
-        else:
-            warnings.warn("metadata.csv perlu kolom record_id dan source_group untuk memakai ID grup manifest.")
-    overlap = set(test.source_group.astype(str)) & set(existing_groups)
-    if overlap:
-        raise ValueError(f"Grup test tumpang tindih dengan data pengembangan: {sorted(overlap)}")
-    class_counts = test.label.value_counts().reindex(CLASSES, fill_value=0)
-    groups_per_class = test.groupby("label").source_group.nunique().reindex(
-        CLASSES, fill_value=0)
-    print(f"Test baru: {len(test)} file, {test.source_group.nunique()} grup sumber; "
-          f"kelas={class_counts.to_dict()}, grup per kelas={groups_per_class.to_dict()}")
-    if (len(test) < 100 or class_counts.min() < 50
-            or test.source_group.nunique() < 10 or groups_per_class.min() < 5):
-        warnings.warn("Keragaman test masih terbatas. Sasaran awal: >=100 file, "
-                      ">=50 file per kelas, >=10 grup sumber, dan >=5 grup per kelas.")
-    if not manifest.exists():
-        warnings.warn("metadata.csv belum ada; keragaman perangkat/sesi/kondisi tidak dapat diverifikasi.")
-    else:
-        if "record_id" not in pd.read_csv(manifest, nrows=0).columns:
-            warnings.warn("metadata.csv perlu kolom record_id untuk mencocokkan file.")
-        else:
-            available_context = [column for column in context_columns if column in test.columns]
-            if not available_context:
-                warnings.warn("metadata.csv belum memuat device/session/room_context; "
-                              "variasi kondisi perekaman tidak dapat dinilai.")
-            for column in context_columns:
-                if column in test.columns:
-                    unique_count = int(test[column].nunique(dropna=True))
-                    print(f"{column}: {unique_count} nilai unik")
-                    if unique_count < 2:
-                        warnings.warn(f"Keragaman {column} belum dapat diuji: ditemukan {unique_count} nilai.")
-    feature_rows, labels, paths = [], [], []
-    feature_start = time.perf_counter()
-    for number, row in enumerate(test.itertuples(), start=1):
-        values = acoustic_features(row.path)
-        feature_rows.append([values[c] for c in bundle["feature_columns"]])
-        labels.append(row.label)
-        paths.append(row.record_id)
-        if number % 10 == 0 or number == len(test):
-            print(f"Test baru diproses {number}/{len(test)}")
-    feature_seconds = time.perf_counter() - feature_start
-    start = time.perf_counter()
-    prediction = bundle["pipeline"].predict(np.asarray(feature_rows, dtype=np.float32))
-    elapsed = time.perf_counter() - start
-    result = metrics(labels, prediction)
-    result["classification_report"] = classification_report(
-        labels, prediction, labels=CLASSES, target_names=CLASSES,
-        zero_division=0, output_dict=True)
-    result["file_count"] = len(test)
-    result["group_count"] = int(test.source_group.nunique())
-    result["class_counts"] = {str(key): int(value) for key, value in class_counts.items()}
-    result["groups_per_class"] = {str(key): int(value) for key, value in groups_per_class.items()}
-    result["feature_extraction_seconds"] = feature_seconds
-    result["prediction_seconds"] = elapsed
-    result["end_to_end_seconds"] = feature_seconds + elapsed
-    result["per_file_end_to_end_ms"] = (feature_seconds + elapsed) * 1000 / len(test)
-    prediction_frame = test.copy()
-    prediction_frame["predicted"] = prediction
-    context_summaries = []
-    for group_column in ["source_group"] + context_columns:
-        if group_column not in prediction_frame.columns:
-            continue
-        available = prediction_frame.dropna(subset=[group_column])
-        if available.empty:
-            continue
-        for group_value, subset in available.groupby(group_column, dropna=True):
-            subset_metrics = metrics(subset.label, subset.predicted)
-            context_summaries.append({
-                "grouping": group_column, "value": str(group_value),
-                "file_count": len(subset), "accuracy": subset_metrics["accuracy"],
-                "precision_berisik": subset_metrics["precision_berisik"],
-                "recall_berisik": subset_metrics["recall_berisik"],
-                "f1_berisik": subset_metrics["f1_berisik"],
-                "f1_macro": subset_metrics["f1_macro"],
-                "confusion_matrix": json.dumps(subset_metrics["confusion_matrix"]),
-            })
-    if context_summaries:
-        pd.DataFrame(context_summaries).to_csv(
-            ARTIFACTS / "hasil_test_baru_per_grup.csv", index=False)
-    result["per_file_predictions"] = [
-        {"record_id": row.record_id, "actual": str(row.label),
-         "predicted": str(row.predicted), "source_group": str(row.source_group)}
-        for row in prediction_frame.itertuples()]
-    (ARTIFACTS / "hasil_test_baru.json").write_text(
-        json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-    print("Hasil test baru:", {k: result[k] for k in
-          ["accuracy", "precision_berisik", "recall_berisik", "f1_berisik", "f1_macro"]})
-    print(classification_report(labels, prediction, labels=CLASSES,
-                                target_names=CLASSES, zero_division=0))
-    print("Confusion matrix (aktual x prediksi):", result["confusion_matrix"])
-    print(f"Waktu ekstraksi fitur: {feature_seconds:.3f} dtk; prediksi model: "
-          f"{elapsed:.6f} dtk; total: {feature_seconds + elapsed:.3f} dtk "
-          f"({result['per_file_end_to_end_ms']:.1f} ms/file)")
-    if context_summaries:
-        print("Analisis per grup/konteks tersimpan: hasil_test_baru_per_grup.csv")
-    return result
-
-
-def main():
-    ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    CACHE.mkdir(parents=True, exist_ok=True)
-    inventory = pd.read_csv(ARTIFACTS / "inventaris_audio.csv")
-    splits = pd.read_csv(ARTIFACTS / "pembagian_data.csv")
-    all_existing_groups = set(splits.source_group.astype(str).unique())
-    inventory = inventory.drop(columns=["source_group"], errors="ignore")
-    dataset = splits.merge(
-        inventory, on=["record_id", "label"], how="inner", validate="one_to_one")
-    # Bangun lokasi dari ID relatif agar CSV dan skrip tidak bergantung pada
-    # lokasi absolut komputer tertentu.
-    dataset["path"] = dataset["record_id"].map(
-        lambda record_id: ROOT / Path(str(record_id)))
-    if "valid" in dataset:
-        if dataset["valid"].dtype == object:
-            valid_mask = dataset["valid"].astype(str).str.strip().str.lower().isin(
-                {"true", "1", "yes"})
-        else:
-            valid_mask = dataset["valid"].fillna(False).astype(bool)
-    else:
-        valid_mask = pd.Series(True, index=dataset.index)
-    feature_records = dataset.loc[valid_mask].copy()
-    excluded_invalid = len(dataset) - len(feature_records)
-    if excluded_invalid:
-        print(f"File tidak valid dikecualikan dari CSV fitur: {excluded_invalid}")
-    missing_paths = feature_records.loc[
-        ~feature_records["path"].map(Path.is_file), "record_id"].tolist()
-    if missing_paths:
-        raise FileNotFoundError(
-            "Audio tidak ditemukan dari path relatif proyek: "
-            + ", ".join(missing_paths[:5]))
-    if not set(feature_records.split.astype(str).unique()).issuperset(
-            {"train", "validation"}):
-        raise ValueError("Split train/validation tidak ditemukan.")
-    development = feature_records.loc[
-        feature_records.split.isin(["train", "validation"])].copy()
-    train = development.loc[development.split == "train"].copy()
-    validation = development.loc[development.split == "validation"].copy()
-    if train.empty or validation.empty:
-        raise ValueError("Data train atau validation kosong setelah validasi audio.")
-    development_groups = set(development.source_group.astype(str).unique())
-    split_counts = feature_records.split.value_counts().to_dict()
-    print(f"Ekstraksi CSV mencakup semua split valid: {len(feature_records)} file "
-          f"({split_counts}); model hanya memakai {len(train)} train dan "
-          f"{len(validation)} validation. Test tidak ikut fit atau tuning.")
-
-    signature_data = {
-        "version": FEATURE_VERSION,
-        "records": [(r.record_id, str(r.split), int(Path(r.path).stat().st_size),
-                     int(Path(r.path).stat().st_mtime_ns))
-                    for r in feature_records.itertuples()],
-    }
-    signature = hashlib.sha256(json.dumps(signature_data, sort_keys=True).encode()).hexdigest()
-    cache_path = CACHE / "acoustic_features_all_splits.joblib"
-    feature_df = None
-    if cache_path.exists():
-        try:
-            cache = joblib.load(cache_path)
-            if cache.get("signature") == signature:
-                feature_df = cache["features"]
-                print("Cache fitur semua split digunakan.")
-        except Exception as exc:
-            print("Cache fitur tidak terbaca; ekstraksi ulang:", exc)
-    if feature_df is None:
-        rows = []
-        for number, row in enumerate(feature_records.itertuples(), start=1):
-            values = acoustic_features(row.path)
-            values["record_id"] = row.record_id
-            rows.append(values)
-            if number % 10 == 0 or number == len(feature_records):
-                print(f"Ekstraksi fitur semua split {number}/{len(feature_records)}")
-        feature_df = pd.DataFrame(rows).set_index("record_id")
-        if not np.isfinite(feature_df.to_numpy(dtype=float)).all():
-            raise ValueError("Fitur mengandung nilai non-finite.")
-        joblib.dump({"signature": signature, "features": feature_df}, cache_path, compress=3)
-
-    # CSV satu baris per rekaman: identitas, label, split, lalu fitur akustik.
-    feature_columns = list(feature_df.columns)
-    feature_export = feature_records[["record_id", "file_name", "label", "split"]].merge(
-        feature_df.reset_index(), on="record_id", how="inner", validate="one_to_one")
-    feature_export = feature_export[
-        ["record_id", "file_name", "label", "split", *feature_columns]
-    ]
-    if len(feature_export) != len(feature_records):
-        raise ValueError("Jumlah baris CSV fitur tidak cocok dengan audio valid.")
-    if not np.isfinite(feature_export[feature_columns].to_numpy(dtype=float)).all():
-        raise ValueError("CSV fitur berisi nilai non-finite.")
-    temporary_features_path = FEATURES_PATH.with_name("dataset_fitur_audio.tmp.csv")
-    feature_export.to_csv(temporary_features_path, index=False, float_format="%.10g")
-    feature_table_path = FEATURES_PATH
-    try:
-        temporary_features_path.replace(FEATURES_PATH)
-    except PermissionError:
-        # Editor/spreadsheet atau sinkronisasi cloud dapat mengunci CSV lama.
-        # Simpan hasil baru di file saudara agar ekstraksi dan training tetap selesai.
-        feature_table_path = ARTIFACTS / "dataset_fitur_audio_baru.csv"
-        temporary_features_path.replace(feature_table_path)
-        warnings.warn(
-            f"{FEATURES_PATH.name} sedang terkunci; fitur baru disimpan ke "
-            f"{feature_table_path.name}. Tutup file lama lalu jalankan ulang skrip "
-            "untuk memperbarui nama CSV utama."
+    pooled_centroid = np.concatenate(centroid_frames)
+    pooled_zcr = np.concatenate(zcr_frames)
+    pooled_mfcc = np.concatenate(mfcc_frames, axis=0)
+    result.update(summarize_five(pooled_centroid, "centroid"))
+    result.update(summarize_five(pooled_zcr, "zcr"))
+    result.update({
+        f"mfcc_{index:02d}": float(pooled_mfcc[:, index].mean())
+        for index in range(N_MFCC)
+    })
+    if list(result) != FEATURE_COLUMNS:
+        raise RuntimeError(
+            f"Urutan/ukuran fitur keliru: dapat {len(result)}, seharusnya 28."
         )
-    print("Dataset fitur tersimpan:", feature_table_path.relative_to(ROOT).as_posix(),
-          "| baris:", len(feature_export), "| jumlah fitur:", len(feature_columns),
-          "| MFCC:", N_MFCC, "koefisien (C0-C12).")
+    if not np.isfinite(np.asarray(list(result.values()), dtype=np.float64)).all():
+        raise ValueError(f"Fitur non-finite untuk {path.name}")
+    return result, quality
 
-    feature_df_development = feature_df.loc[development.record_id.tolist()]
-    rich_columns = [c for c in feature_df.columns if c not in RMS_COLUMNS]
-    print("Fitur RMS:", len(RMS_COLUMNS), "| fitur tambahan:", len(rich_columns))
 
-    results, searches, frames = {}, {}, {
-        "RMS + SVM": feature_df_development[RMS_COLUMNS],
-        "RMS + centroid + ZCR + MFCC 13 + SVM":
-            feature_df_development[RMS_COLUMNS + rich_columns],
+def extract_feature_table(inventory: pd.DataFrame, progress=True):
+    """Ekstraksi seluruh audio terbaca; gagal baca dicatat di inventaris."""
+    updated = inventory.copy(deep=True)
+    rows = []
+    valid_indices = updated.index[updated["valid"].astype(bool)].tolist()
+    total = len(valid_indices)
+    for number, index in enumerate(valid_indices, start=1):
+        row = updated.loc[index]
+        try:
+            features, quality = acoustic_features(Path(row["_path"]))
+            updated.loc[index, "clipped_fraction"] = quality["clipped_fraction"]
+            updated.loc[index, "silent"] = quality["silent"]
+            record = {
+                "record_id": row["record_id"], "file_name": row["file_name"],
+                "label": row["label"], "source_group": row["source_group"],
+                "file_sha256": row["file_sha256"], **features,
+            }
+            rows.append(record)
+        except Exception as exc:
+            updated.loc[index, "valid"] = False
+            updated.loc[index, "error"] = f"{type(exc).__name__}: {exc}"
+        if progress and (number % 10 == 0 or number == total):
+            print(f"Ekstraksi fitur: {number}/{total}")
+    feature_table = pd.DataFrame(rows)
+    if not feature_table.empty:
+        numeric = feature_table[FEATURE_COLUMNS].to_numpy(dtype=np.float64)
+        if numeric.shape[1] != 28 or not np.isfinite(numeric).all():
+            raise ValueError("Fitur harus berjumlah tepat 28 dan finite.")
+    return updated, feature_table
+
+
+def duplicate_audit(feature_table: pd.DataFrame):
+    """Tandai hash duplikat/label konflik, lalu buat data modeling tanpa duplikasi."""
+    hash_labels = feature_table.groupby("file_sha256")["label"].agg(
+        lambda labels: sorted(set(labels))
+    )
+    conflict_hashes = set(hash_labels[hash_labels.map(len) > 1].index)
+    grouped = feature_table.groupby("file_sha256", sort=True)
+
+    # Union source IDs connected by identical audio so no copy crosses a split.
+    source_ids = set(feature_table["source_group"].astype(str))
+    parents = {source_id: source_id for source_id in source_ids}
+
+    def find(item):
+        while parents[item] != item:
+            parents[item] = parents[parents[item]]
+            item = parents[item]
+        return item
+
+    def union(left, right):
+        root_left, root_right = find(left), find(right)
+        if root_left != root_right:
+            parents[root_right] = root_left
+
+    for file_hash, group in grouped:
+        sources = sorted(set(group["source_group"].astype(str)))
+        for other in sources[1:]:
+            union(sources[0], other)
+
+    enriched = feature_table.copy()
+    enriched["leakage_group"] = enriched["source_group"].astype(str).map(
+        lambda value: find(value)
+    )
+    enriched["model_status"] = "eligible"
+    enriched.loc[enriched["file_sha256"].isin(conflict_hashes), "model_status"] = (
+        "excluded_conflicting_labels"
+    )
+    consistent = enriched.loc[~enriched["file_sha256"].isin(conflict_hashes)].copy()
+    model_table = consistent.sort_values("record_id").drop_duplicates(
+        "file_sha256", keep="first"
+    ).reset_index(drop=True)
+    return enriched, model_table, conflict_hashes
+
+
+def grouped_train_validation_test_split(
+    file_table: pd.DataFrame,
+    train_size=0.70,
+    validation_size=0.15,
+    test_size=0.15,
+    seed_trials=500,
+):
+    """Bagi setiap file valid ke train/validation/test tanpa memecah grup.
+
+    Beberapa pengacakan StratifiedGroupKFold tujuh fold dicoba. Pasangan fold
+    validation/test yang ukurannya dan jumlah per kelasnya paling dekat dengan
+    target dipilih; akurasi/model tidak digunakan untuk memilih split. Pemanggil
+    dapat lalu menyaring representatif audio unik untuk pemodelan, namun manifest
+    split tetap memuat semua file sumber.
+    """
+    if file_table["label"].nunique() != 2:
+        raise ValueError("Diperlukan contoh dari kedua kelas untuk split.")
+    if not np.isclose(train_size + validation_size + test_size, 1.0):
+        raise ValueError("Proporsi train, validation, dan test harus berjumlah 1.")
+    y = file_table["label"].to_numpy()
+    groups = file_table["leakage_group"].astype(str).to_numpy()
+    if len(np.unique(groups)) < 7:
+        raise ValueError("Split 70/15/15 berbasis grup memerlukan sedikitnya 7 grup.")
+    if seed_trials < 1:
+        raise ValueError("seed_trials harus minimal 1.")
+    class_labels = list(CLASSES)
+    total_by_class = {label: int(np.sum(y == label)) for label in class_labels}
+    target_sizes = {
+        "train": train_size,
+        "validation": validation_size,
+        "test": test_size,
     }
-    for name, frame in frames.items():
-        train_ids = train.record_id.tolist()
-        val_ids = validation.record_id.tolist()
-        y_train = train.set_index("record_id").loc[train_ids, "label"].to_numpy()
-        g_train = train.set_index("record_id").loc[train_ids, "source_group"].to_numpy()
-        y_val = validation.set_index("record_id").loc[val_ids, "label"].to_numpy()
-        search = tune_svm(frame.loc[train_ids].to_numpy(dtype=np.float32), y_train, g_train)
-        pred = search.best_estimator_.predict(frame.loc[val_ids].to_numpy(dtype=np.float32))
-        result = metrics(y_val, pred)
-        results[name], searches[name] = result, search
-        print(f"\n{name}: params={search.best_params_}; CV train F1 macro="
-              f"{search.best_score_:.4f}; validation={result}")
-        print(classification_report(y_val, pred, labels=CLASSES,
-                                    target_names=CLASSES, zero_division=0))
+    all_indices = np.arange(len(file_table))
+    best_candidate = None
+    public_candidates = []
+    for seed in range(SEED, SEED + seed_trials):
+        splitter = StratifiedGroupKFold(
+            n_splits=7, shuffle=True, random_state=seed
+        )
+        folds = [
+            heldout_idx
+            for _, heldout_idx in splitter.split(np.zeros(len(file_table)), y, groups)
+        ]
+        for validation_fold, validation_idx in enumerate(folds, start=1):
+            for test_fold, test_idx in enumerate(folds, start=1):
+                if validation_fold == test_fold:
+                    continue
+                train_idx = np.setdiff1d(
+                    all_indices, np.concatenate([validation_idx, test_idx]),
+                    assume_unique=False,
+                )
+                indices = {
+                    "train": train_idx,
+                    "validation": validation_idx,
+                    "test": test_idx,
+                }
+                if any(
+                    len(np.unique(y[idx])) < 2 for idx in indices.values()
+                ):
+                    continue
+                actual_counts = {
+                    name: {label: int(np.sum(y[idx] == label))
+                           for label in class_labels}
+                    for name, idx in indices.items()
+                }
+                actual_sizes = {
+                    name: len(idx) / len(file_table)
+                    for name, idx in indices.items()
+                }
+                # Nilai split hanya dinilai dari ukuran dan kelas, bukan fitur
+                # atau performa model, agar test tidak dipilih berdasarkan skor.
+                score = sum(
+                    abs(actual_counts[name][label] - target_sizes[name] * total_by_class[label])
+                    for name in indices
+                    for label in class_labels
+                ) / len(file_table)
+                candidate = {
+                    "score": float(score),
+                    "seed": int(seed),
+                    "validation_fold": int(validation_fold),
+                    "test_fold": int(test_fold),
+                    "train_idx": train_idx,
+                    "validation_idx": validation_idx,
+                    "test_idx": test_idx,
+                    "actual_sizes": actual_sizes,
+                    "actual_counts": actual_counts,
+                }
+                public_candidates.append({
+                    key: value for key, value in candidate.items()
+                    if key not in {"train_idx", "validation_idx", "test_idx"}
+                })
+                if best_candidate is None or (
+                    candidate["score"], candidate["seed"],
+                    candidate["validation_fold"], candidate["test_fold"]
+                ) < (
+                    best_candidate["score"], best_candidate["seed"],
+                    best_candidate["validation_fold"], best_candidate["test_fold"]
+                ):
+                    best_candidate = candidate
+    if best_candidate is None:
+        raise ValueError("Tidak ditemukan split 70/15/15 yang memuat kedua kelas.")
+    selected = best_candidate
+    train_idx = selected["train_idx"]
+    validation_idx = selected["validation_idx"]
+    test_idx = selected["test_idx"]
+    train = file_table.iloc[train_idx].copy().reset_index(drop=True)
+    validation = file_table.iloc[validation_idx].copy().reset_index(drop=True)
+    test = file_table.iloc[test_idx].copy().reset_index(drop=True)
+    partitions = {"train": train, "validation": validation, "test": test}
+    names = list(partitions)
+    for i, left_name in enumerate(names):
+        for right_name in names[i + 1:]:
+            left, right = partitions[left_name], partitions[right_name]
+            if set(left.leakage_group) & set(right.leakage_group):
+                raise RuntimeError(
+                    f"Kebocoran grup antara {left_name} dan {right_name}."
+                )
+            if set(left.file_sha256) & set(right.file_sha256):
+                raise RuntimeError(
+                    f"Kebocoran duplikat antara {left_name} dan {right_name}."
+                )
+    return train, validation, test, selected, sorted(
+        public_candidates, key=lambda item: item["score"]
+    )[:20]
 
-    comparison = pd.DataFrame([{
-        "experiment": name,
-        "cv_train_f1_macro": float(searches[name].best_score_),
-        **{f"validation_{key}": value for key, value in results[name].items()
-           if key != "confusion_matrix"},
-        "best_params": str(searches[name].best_params_),
-        "validation_confusion_matrix": json.dumps(results[name]["confusion_matrix"]),
-    } for name in frames])
-    print("\nPerbandingan train-CV dan validation:")
-    print(comparison.to_string(index=False))
-    selected = max(frames, key=lambda name: (
-        results[name]["f1_macro"], results[name]["recall_berisik"],
-        searches[name].best_score_, results[name]["accuracy"]))
-    print("\nDipilih hanya dari train-CV dan validation:", selected)
 
-    selected_frame = frames[selected]
-    final_search = searches[selected]
-    all_dev_ids = development.record_id.tolist()
-    final_y = development.set_index("record_id").loc[all_dev_ids, "label"].to_numpy()
-    final_pipeline = Pipeline([
+def make_svm_pipeline():
+    return Pipeline([
         ("scaler", StandardScaler()),
-        ("svc", SVC(kernel="rbf", probability=True, random_state=SEED,
-                    C=final_search.best_params_["svc__C"],
-                    gamma=final_search.best_params_["svc__gamma"])),
+        ("svc", SVC(kernel="rbf", class_weight=None, random_state=SEED)),
     ])
-    final_pipeline.fit(selected_frame.loc[all_dev_ids].to_numpy(dtype=np.float32), final_y)
-    feature_type = "rms" if selected == "RMS + SVM" else "rms_centroid_zcr_mfcc13"
+
+
+def tune_svm(train: pd.DataFrame):
+    """CV grouped 5-fold hanya pada training; scaler ada di dalam pipeline."""
+    n_groups = train["leakage_group"].nunique()
+    if n_groups < 5:
+        raise ValueError(f"Cross-validation butuh >=5 grup train; tersedia {n_groups}.")
+    cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=SEED)
+    grid = {
+        "svc__C": [0.1, 1, 10, 100],
+        "svc__gamma": ["scale", 0.01, 0.1, 1],
+    }
+    search = GridSearchCV(
+        estimator=make_svm_pipeline(), param_grid=grid,
+        scoring="f1_macro", cv=cv, n_jobs=1, refit=True,
+        return_train_score=False,
+    )
+    search.fit(
+        train[FEATURE_COLUMNS].to_numpy(dtype=np.float32),
+        train["label"].to_numpy(),
+        groups=train["leakage_group"].astype(str).to_numpy(),
+    )
+    cv_results = pd.DataFrame(search.cv_results_).sort_values(
+        ["rank_test_score", "mean_test_score"]
+    )
+    return search, cv_results
+
+
+def evaluate_svm(model, data: pd.DataFrame, split_name="test"):
+    """Hitung metrik pada subset bernama dan kembalikan prediksi per rekaman."""
+    X_test = data[FEATURE_COLUMNS].to_numpy(dtype=np.float32)
+    y_test = data["label"].to_numpy()
+    started = time.perf_counter()
+    prediction = model.predict(X_test)
+    inference_seconds = time.perf_counter() - started
+    report = classification_report(
+        y_test, prediction, labels=CLASSES, target_names=CLASSES,
+        zero_division=0, output_dict=True,
+    )
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        y_test, prediction, labels=CLASSES, average=None, zero_division=0
+    )
+    metrics = {
+        "accuracy": float(accuracy_score(y_test, prediction)),
+        "precision_macro": float(np.mean(precision)),
+        "recall_macro": float(np.mean(recall)),
+        "f1_macro": float(f1_score(y_test, prediction, labels=CLASSES,
+                                   average="macro", zero_division=0)),
+        "precision_berisik": float(precision[1]),
+        "recall_berisik": float(recall[1]),
+        "f1_berisik": float(f1[1]),
+        "confusion_matrix": confusion_matrix(y_test, prediction, labels=CLASSES).tolist(),
+        "classification_report": report,
+        "record_count": int(len(data)),
+        "group_count": int(data["leakage_group"].nunique()),
+        "evaluated_split": str(split_name),
+        "inference_seconds": float(inference_seconds),
+        "inference_ms_per_record": float(inference_seconds * 1000 / max(len(data), 1)),
+    }
+    predictions = data[["record_id", "file_name", "label", "source_group",
+                        "leakage_group"]].copy()
+    predictions["prediction"] = prediction
+    predictions["correct"] = predictions["label"] == predictions["prediction"]
+    return metrics, predictions
+
+
+def infer_audio_file(path: Path, model) -> dict:
+    """Inferensi satu file dengan resep fitur yang sama persis dengan training."""
+    features, quality = acoustic_features(Path(path))
+    vector = pd.DataFrame([[features[column] for column in FEATURE_COLUMNS]],
+                          columns=FEATURE_COLUMNS).to_numpy(dtype=np.float32)
+    prediction = str(model.predict(vector)[0])
+    return {
+        "record_id": Path(path).name,
+        "prediction": prediction,
+        "rms_overall": features["rms_overall"],
+        "quality": quality,
+        "feature_count": len(features),
+    }
+
+
+def package_versions():
+    versions = {}
+    for name in ["numpy", "pandas", "scipy", "soundfile", "scikit-learn", "joblib"]:
+        try:
+            versions[name] = package_metadata.version(name)
+        except package_metadata.PackageNotFoundError:
+            versions[name] = None
+    return versions
+
+
+def inventory_csv_view(inventory: pd.DataFrame) -> pd.DataFrame:
+    """Kolom yang aman disimpan; path internal dihilangkan."""
+    columns = [
+        "record_id", "file_name", "label", "format", "duration_seconds",
+        "sample_rate", "channels", "file_size_bytes", "source_group",
+        "file_sha256", "valid", "clipped_fraction", "silent", "error",
+    ]
+    return inventory[columns].copy()
+
+
+def save_model_and_metadata(model, validation_metrics, test_metrics, split_info,
+                            conflict_hashes, selected_folds, cv_best_score, cv_best_params,
+                            model_path: Path, metadata_path: Path):
+    """Simpan pipeline final serta resep yang cukup untuk pemakaian ulang."""
+    model_path.parent.mkdir(parents=True, exist_ok=True)
     bundle = {
-        "pipeline": final_pipeline,
-        "selected_experiment": selected,
-        "feature_type": feature_type,
-        "feature_columns": list(selected_frame.columns),
-        "class_order": CLASSES,
-        "positive_label": "berisik",
-        "sample_rate": SR,
+        "pipeline": model,
+        "feature_columns": list(FEATURE_COLUMNS),
+        "classes": list(CLASSES),
+        "sample_rate": SAMPLE_RATE,
         "window_seconds": WINDOW_SECONDS,
         "window_hop_seconds": WINDOW_HOP_SECONDS,
-        "feature_frame_seconds": FFT_SIZE / SR,
-        "feature_hop_seconds": FFT_HOP_SIZE / SR,
-        "feature_recipe": "RMS keseluruhan + mean spectral centroid + mean ZCR + "
-                          "mean MFCC C0-C12; satu nilai per fitur per rekaman",
+        "rms_frame_seconds": RMS_FRAME_SECONDS,
+        "rms_hop_seconds": RMS_HOP_SECONDS,
+        "fft_size": FFT_SIZE,
+        "fft_hop_size": FFT_HOP_SIZE,
+        "n_mels": N_MELS,
+        "n_mfcc": N_MFCC,
+        "feature_version": FEATURE_VERSION,
     }
-    joblib.dump(bundle, MODEL_PATH, compress=3)
-    comparison.to_csv(COMPARISON_PATH, index=False)
-    meta = {
-        "selection_source": "grouped CV on train and validation only; test rows are exported as fixed features but excluded from fitting, tuning, and model selection",
-        "selected_experiment": selected,
-        "best_params": final_search.best_params_,
-        "cv_train_f1_macro": float(final_search.best_score_),
-        "validation_metrics": results[selected],
-        "train_count": len(train), "validation_count": len(validation),
-        "train_group_count": int(train.source_group.nunique()),
-        "validation_group_count": int(validation.source_group.nunique()),
-        "development_groups": sorted(map(str, development_groups)),
-        "feature_columns": bundle["feature_columns"],
-        "feature_table_path": feature_table_path.relative_to(ROOT).as_posix(),
-        "feature_table_rows": len(feature_export),
-        "feature_table_feature_count": len(feature_columns),
-        "feature_table_splits": sorted(feature_export["split"].unique().tolist()),
-        "mfcc_coefficients": N_MFCC,
-        "mfcc_includes_c0": True,
-        "feature_frame_seconds": FFT_SIZE / SR,
-        "feature_hop_seconds": FFT_HOP_SIZE / SR,
-        "feature_aggregation": "centroid, ZCR, dan MFCC dirata-ratakan atas seluruh frame",
-        "feature_type": feature_type,
-        "test_evaluated": False,
-        "test_folder_expected": "../test_baru/",
-        "feature_implementation": "NumPy FFT + SciPy DCT; mel filterbank 64 bands; mono 16 kHz",
-        "versions": {
-            package: package_version(package)
-            for package in ["numpy", "pandas", "scipy", "soundfile",
-                            "scikit-learn", "joblib"]
+    joblib.dump(bundle, model_path, compress=3)
+    metadata = {
+        "model": "SVC RBF in StandardScaler pipeline",
+        "selection": "GridSearchCV grouped 5-fold on training data only",
+        "best_cv_f1_macro": float(cv_best_score),
+        "best_params": cv_best_params,
+        "random_seed": SEED,
+        "split_strategy": "70/15/15; StratifiedGroupKFold 7-fold candidate pairs, grouped by source and exact duplicate audio",
+        "target_split_proportions": {"train": 0.70, "validation": 0.15, "test": 0.15},
+        "selected_folds": {
+            "validation": int(selected_folds["validation_fold"]),
+            "test": int(selected_folds["test_fold"]),
+            "random_state": int(selected_folds["seed"]),
         },
+        "split_candidate_seed_trials": 500,
+        "train_records_unique_audio": int(split_info["train_count"]),
+        "validation_records_unique_audio": int(split_info["validation_count"]),
+        "test_records_unique_audio": int(split_info["test_count"]),
+        "raw_file_counts_by_split": {
+            "train": int(split_info["train_raw_file_count"]),
+            "validation": int(split_info["validation_raw_file_count"]),
+            "test": int(split_info["test_raw_file_count"]),
+        },
+        "raw_class_counts_by_split": split_info["raw_class_counts"],
+        "train_groups": int(split_info["train_groups"]),
+        "validation_groups": int(split_info["validation_groups"]),
+        "test_groups": int(split_info["test_groups"]),
+        "exact_conflicting_hashes_excluded": sorted(conflict_hashes),
+        "features": list(FEATURE_COLUMNS),
+        "feature_count": len(FEATURE_COLUMNS),
+        "feature_recipe": {
+            "RMS": "rms_overall plus mean/std/min/max of 1 s RMS frames at 0.5 s hop",
+            "spectral_centroid": "mean/std/median/p10/p90 across 1024-sample frames",
+            "ZCR": "mean/std/median/p10/p90 across 1024-sample frames",
+            "MFCC": "mean of C0-C12; 64 mel bands, log10 power, DCT-II orthonormal",
+        },
+        "preprocessing": {
+            "mono": "mean across channels",
+            "target_sample_rate": SAMPLE_RATE,
+            "per_file_amplitude_normalization": False,
+            "window_seconds": WINDOW_SECONDS,
+            "window_hop_seconds": WINDOW_HOP_SECONDS,
+            "short_audio": "zero-pad to 30 s",
+            "long_audio": "30 s windows at 15 s hop; tail aligned to end if >=7.5 s remains",
+        },
+        "validation_metrics": validation_metrics,
+        "test_metrics": test_metrics,
+        "versions": package_versions(),
     }
-    METADATA_PATH.write_text(json.dumps(meta, ensure_ascii=False, indent=2, default=str),
-                             encoding="utf-8")
-    print("\nModel kandidat tersimpan:", MODEL_PATH.relative_to(ROOT).as_posix())
-    print("Metadata:", METADATA_PATH.relative_to(ROOT).as_posix())
-    print("Perbandingan:", COMPARISON_PATH.relative_to(ROOT).as_posix())
-    print("CSV fitur:", feature_table_path.relative_to(ROOT).as_posix())
-    print("Catatan: metrik test belum dihitung; evaluasi hanya berjalan bila test_baru berisi grup baru.")
-    evaluate_new_test(bundle, all_existing_groups)
+    metadata_path.write_text(
+        json.dumps(metadata, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+    return bundle, metadata
 
-
-if __name__ == "__main__":
-    main()
