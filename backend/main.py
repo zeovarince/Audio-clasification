@@ -42,6 +42,18 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+def root():
+    """Endpoint utama API SilentGuard Lab."""
+    return {
+        "service": "SilentGuard Lab API",
+        "status": "online",
+        "port": int(os.environ.get("PORT", 8007)),
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health")
 def health():
     """Endpoint pemeriksaan kesehatan dan kesiapan model."""
