@@ -285,7 +285,7 @@ Docker Compose menjalankan dashboard Next.js dan API FastAPI sebagai dua contain
 docker compose up --build
 ```
 
-Untuk mengaktifkan deploy otomatis setiap push ke branch `main`, siapkan SSH server dan GitHub Secrets sesuai [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md). Untuk akses mikrofon dari komputer lain, server perlu HTTPS.
+Untuk deploy ke server lab, ikuti [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md). Deploy dilakukan manual dari server setelah perubahan di-push ke GitHub. Untuk akses mikrofon dari komputer lain, server perlu HTTPS.
 
 ---
 
