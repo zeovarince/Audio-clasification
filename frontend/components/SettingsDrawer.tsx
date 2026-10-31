@@ -54,7 +54,7 @@ export default function SettingsDrawer({
     try {
       const result = await healthCheck();
       setHealthResult(
-        `Status: ${result.status}\nModel: ${result.model_loaded ? "Terpasang" : "Belum dimuat"}\nscikit-learn: ${result.sklearn_version}`
+        `Status: ${result.status}\nModel: ${result.model_loaded ? `${result.model_version ?? "Tidak diketahui"} (${result.feature_count ?? "?"} fitur)` : "Belum dimuat"}\nscikit-learn: ${result.sklearn_version}`
       );
     } catch (err) {
       setHealthResult(

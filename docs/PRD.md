@@ -4,7 +4,7 @@ Versi 0.1 | Status: Draft | Platform: Web app (Next.js + FastAPI)
 
 ## 1. Ringkasan
 
-SilentGuard Lab adalah sistem pemantau kebisingan berbasis web untuk laboratorium. Sistem menangkap suara dari mikrofon, mengklasifikasikannya sebagai berisik atau tenang memakai model machine learning yang sudah dilatih (akurasi sekitar 92%), menampilkan gelombang suara dan persentase keramaian secara real-time, lalu membunyikan alarm peringatan "tolong jangan berisik di lab" ketika keramaian melewati ambang tertentu.
+SilentGuard Lab adalah sistem pemantau kebisingan berbasis web untuk laboratorium. Sistem menangkap suara dari mikrofon, mengklasifikasikannya sebagai berisik atau tenang memakai Model 4.0 (akurasi holdout 97.56%), menampilkan gelombang suara dan persentase keramaian secara real-time, lalu membunyikan alarm peringatan ketika keramaian melewati ambang tertentu.
 
 ## 2. Latar belakang dan masalah
 
@@ -73,7 +73,7 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 
 | Metrik | Target |
 |---|---|
-| Akurasi model offline | sekitar 92% (sudah tercapai) |
+| Akurasi model offline | 97.56% pada holdout test 41 file Model 4.0 |
 | Alarm 60% berbunyi pada skenario keramaian uji | 100% dari skenario di `TASKS.md` |
 | Alarm palsu saat lab tenang | ditetapkan setelah uji lapangan (usulan awal: tidak ada alarm dalam 10 menit lab tenang) |
 | Latensi suara ke persentase | di bawah 2 detik |
@@ -94,7 +94,7 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 1. "Persentase keramaian" diambil dari probabilitas kelas berisik, atau digabung dengan tingkat volume (RMS atau dB)? Default: probabilitas kelas berisik.
 2. Saat lonjakan langsung dari tenang ke 80% ke atas, alarm 80% langsung berbunyi? Default: ya.
 3. Setelah alarm 80% dan keramaian turun ke rentang 60 sampai 79, status tetap Peringatan 2 atau turun ke Peringatan 1? Default: tetap Peringatan 2.
-4. Deploy akhir: full Vercel atau Vercel + backend terpisah? Lihat `DEPLOY.md`.
+4. Deploy akhir: Docker Compose pada server lab; lihat `../DEPLOY_DOCKER.md`.
 
 ## 12. Dokumen terkait
 

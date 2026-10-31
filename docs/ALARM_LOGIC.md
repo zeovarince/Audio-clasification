@@ -16,7 +16,7 @@ Dokumen ini adalah sumber kebenaran untuk kapan alarm berbunyi. Kode di `fronten
 | `THRESHOLD_2` | 80 | Ambang alarm 2 |
 | `CALM_HOLD_SECONDS` | 3 | Skor harus berada di bawah `THRESHOLD_1` selama sekian detik sebelum sistem dianggap kembali tenang (mencegah alarm berulang akibat skor naik turun di sekitar 60) |
 | `JUMP_TO_ALARM_2` | true | Jika skor melonjak langsung dari tenang ke 80 atau lebih, langsung putar alarm 2 tanpa alarm 1 |
-| `SMOOTHING_WINDOW` | 5 | Jumlah hasil prediksi terakhir yang dirata-ratakan menjadi skor |
+| `SMOOTHING_WINDOW` | 3 | Jumlah hasil prediksi terakhir yang dirata-ratakan menjadi skor |
 
 ## 3. Cara menghitung skor keramaian
 

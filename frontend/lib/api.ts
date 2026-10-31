@@ -26,6 +26,8 @@ export interface PredictResponse {
 export interface HealthResponse {
   status: string;
   model_loaded: boolean;
+  model_version?: string | null;
+  feature_count?: number;
   sklearn_version: string;
   sample_rate?: number;
   classes?: number[];

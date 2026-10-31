@@ -4,8 +4,8 @@
 
 Dua bagian terpisah:
 
-- **Frontend (Next.js di folder `web/`)**: menangkap mikrofon, menggambar waveform, menghitung skor keramaian, menjalankan logika alarm, dan memutar audio alarm.
-- **Backend (FastAPI, Python di folder `backend/`)**: memuat model `.joblib` dan `.pkl` dari `model2.0/`, mengekstrak fitur audio, dan mengembalikan probabilitas berisik.
+- **Frontend (Next.js di folder `frontend/`)**: menangkap mikrofon pada 22050 Hz mono, menggambar waveform, mengubah probabilitas menjadi skor 0–100, menjalankan logika alarm, dan memutar audio alarm.
+- **Backend (FastAPI, Python di folder `backend/`)**: memuat artefak Model 4.0 dari `backend/models/`, mengekstrak 112 fitur, dan mengembalikan probabilitas berisik.
 
 Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi dipisah ke backend Python.
 
@@ -40,11 +40,11 @@ Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi di
 
 | Lapisan | Pilihan |
 |---|---|
-| Frontend | Next.js (App Router), TypeScript, Tailwind CSS v4 di `web/` |
+| Frontend | Next.js (App Router), TypeScript, Tailwind CSS v4 di `frontend/` |
 | Audio di browser | Web Audio API: `getUserMedia`, `AnalyserNode`, `AudioWorklet` |
 | Backend | FastAPI, Uvicorn di `backend/` |
-| ML | scikit-learn (1.6.1), joblib, numpy, librosa (model dibaca dari `model2.0/` via env `MODEL_DIR`) |
-| Deploy | Lihat `DEPLOY.md` |
+| ML | Model 4.0: SVM RBF, 112 fitur; scikit-learn 1.6.1, joblib, numpy, librosa |
+| Deploy | Docker Compose di server lab pada port 8007; lihat `../DEPLOY_DOCKER.md` |
 
 ## 3. Struktur repo
 
@@ -54,8 +54,8 @@ Audio-clasification/
   README.md
   docs/                      # semua dokumen spesifikasi
   alrm/                      # audio alarm sumber (alarm60%.mp3, alarm80%.mp3)
-  model2.0/                  # file model trained (model_klasifikasi_berisik.joblib & .pkl)
-  web/                       # aplikasi Next.js (sebelumnya disebut frontend)
+  backend/models/            # artefak Model 4.0 (112 fitur)
+  frontend/                  # aplikasi Next.js
     app/
       layout.tsx
       page.tsx               # dashboard
@@ -115,14 +115,21 @@ Error:
 ### `GET /health`
 
 ```json
-{ "status": "ok", "model_loaded": true, "sklearn_version": "1.6.1" }
+{
+  "status": "ok",
+  "model_loaded": true,
+  "model_version": "4.0",
+  "feature_count": 112,
+  "sample_rate": 22050,
+  "sklearn_version": "1.6.1"
+}
 ```
 
 Dipakai tombol "Tes koneksi" di UI dan untuk pemantauan ketersediaan backend.
 
 ## 5. Alur data detail
 
-1. Pengguna menekan Mulai. Frontend membuat `AudioContext` dengan sample rate model 22050 Hz (jika browser default pada 44100/48000 Hz, `AudioWorklet` melakukan downsampling ke 22050 Hz).
+1. Pengguna menekan Mulai. Frontend membuat `AudioContext` pada 22050 Hz; browser mengonversi audio device ke sample rate konteks. Jika konteks tidak dapat memakai 22050 Hz, frontend menampilkan error dan tidak mengirim audio dengan sample rate keliru.
 2. `AudioWorklet` mengumpulkan sampel mono ke ring buffer.
 3. Setiap `HOP_SECONDS` (default 1 detik), frontend mengambil `WINDOW_SECONDS` terakhir (default 5 detik), mengonversi Float32 ke Int16, dan mengirim ke `/predict`.
 4. Respons masuk ke `smoothing.ts` (rata-rata `SMOOTHING_WINDOW` nilai terakhir) menjadi skor 0 sampai 100.
@@ -131,7 +138,7 @@ Dipakai tombol "Tes koneksi" di UI dan untuk pemantauan ketersediaan backend.
 
 ## 6. Konfigurasi
 
-`web/.env.local`:
+`frontend/.env.local`:
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
@@ -139,11 +146,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 `backend/.env` (atau variabel lingkungan di host):
 ```
 ALLOWED_ORIGINS=http://localhost:3000
-MODEL_DIR=../model2.0
+MODEL_DIR=./models
 ```
 
-`web/lib/config.ts` berisi nilai yang berasal dari `MODEL_SPEC.md` dan `ALARM_LOGIC.md`:
-`SAMPLE_RATE = 22050`, `WINDOW_SECONDS = 5.0`, `HOP_SECONDS = 1.0`, `THRESHOLD_1 = 60`, `THRESHOLD_2 = 80`, `CALM_HOLD_SECONDS = 3`, `SMOOTHING_WINDOW = 5`, `JUMP_TO_ALARM_2 = true`.
+`frontend/lib/config.ts` berisi nilai yang berasal dari `MODEL_SPEC.md` dan `ALARM_LOGIC.md`:
+`SAMPLE_RATE = 22050`, `WINDOW_SECONDS = 5.0`, `HOP_SECONDS = 1.0`, `THRESHOLD_1 = 60`, `THRESHOLD_2 = 80`, `CALM_HOLD_SECONDS = 3`, `SMOOTHING_WINDOW = 3`, `JUMP_TO_ALARM_2 = true`.
 
 ## 7. Penanganan error
 

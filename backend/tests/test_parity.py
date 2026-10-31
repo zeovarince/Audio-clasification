@@ -27,6 +27,8 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "ok"
     assert data["model_loaded"] is True
+    assert data["model_version"] == "4.0"
+    assert data["feature_count"] == 112
     assert data["sample_rate"] == 22050
 
 

@@ -8,30 +8,20 @@ class PCMCaptureProcessor extends AudioWorkletProcessor {
     super();
     this._buffer = [];
     this._targetSR = 22050;
-    this._sourceSR = sampleRate; // global dari AudioWorklet scope
-    this._ratio = this._sourceSR / this._targetSR;
-    this._accumulator = 0;
   }
 
   process(inputs) {
-    const input = inputs[0];
-    if (!input || !input[0]) return true;
+    const channels = inputs[0];
+    if (!channels || channels.length === 0) return true;
 
-    const channelData = input[0];
-
-    // Downsampling sederhana jika browser sample rate != 22050
-    if (Math.abs(this._ratio - 1.0) < 0.001) {
-      // Sample rate cocok, kirim langsung
-      this._buffer.push(...channelData);
-    } else {
-      // Downsample dengan linear interpolation
-      for (let i = 0; i < channelData.length; i++) {
-        this._accumulator += 1;
-        if (this._accumulator >= this._ratio) {
-          this._accumulator -= this._ratio;
-          this._buffer.push(channelData[i]);
-        }
+    // Samakan ke mono seperti saat audio training dimuat dengan librosa.
+    const frameCount = channels[0].length;
+    for (let frame = 0; frame < frameCount; frame++) {
+      let monoSample = 0;
+      for (let channel = 0; channel < channels.length; channel++) {
+        monoSample += channels[channel][frame] ?? 0;
       }
+      this._buffer.push(monoSample / channels.length);
     }
 
     // Kirim ke main thread setiap kali buffer cukup (setiap ~100ms untuk responsivitas)

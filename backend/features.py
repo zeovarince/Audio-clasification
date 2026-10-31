@@ -1,8 +1,7 @@
 """Modul ekstraksi fitur audio untuk SilentGuard Lab.
 
-Logika ekstraksi fitur di sini disalin persis dari model training
-(Cell 14 pada model2.0/klasifikasi_berisik_audio.ipynb) untuk memastikan
-paritas 100% antara training dan inferensi.
+Ekstraksi fitur Model 4.0 diselaraskan dengan fungsi training di
+model4.0/klasifikasi-audioV4.ipynb.
 """
 
 from typing import Dict

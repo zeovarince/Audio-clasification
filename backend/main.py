@@ -73,6 +73,8 @@ def health():
     return {
         "status": "ok",
         "model_loaded": info["model_loaded"],
+        "model_version": info["model_version"],
+        "feature_count": info["feature_count"],
         "sklearn_version": info["sklearn_version"],
         "sample_rate": info["sample_rate"],
         "classes": info["classes"],

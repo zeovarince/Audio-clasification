@@ -51,20 +51,28 @@ export function createAudioCapture(
     if (active) return;
 
     try {
-      // Minta izin mikrofon dengan AGC aktif agar suara tidak terlalu kecil
+      // Pertahankan dinamika mikrofon agar tidak mengubah fitur energi model.
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: true,
+          autoGainControl: false,
         },
       });
 
-      // Buat AudioContext
+      // Minta browser mengonversi input device ke sample rate model.
       try {
         audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
       } catch {
-        audioContext = new AudioContext();
+        throw new Error("Browser ini tidak mendukung pemrosesan audio 22050 Hz.");
+      }
+      if (audioContext.sampleRate !== SAMPLE_RATE) {
+        const actualSampleRate = audioContext.sampleRate;
+        await audioContext.close();
+        audioContext = null;
+        throw new Error(
+          `Sample rate browser ${actualSampleRate} Hz tidak cocok dengan model (${SAMPLE_RATE} Hz).`
+        );
       }
 
       // Pastikan AudioContext aktif (tidak tersuspensi oleh browser)

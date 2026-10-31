@@ -2,13 +2,13 @@
 
 ## Tentang proyek
 
-SilentGuard Lab adalah web app pemantau kebisingan lab. Mikrofon di browser menangkap suara, backend Python mengklasifikasikannya (berisik atau tenang) memakai model `.joblib` dan `.pkl` yang sudah dilatih (akurasi sekitar 92%), dan sistem membunyikan alarm "tolong jangan berisik di lab" di ambang keramaian 60% dan 80%. Dashboard menampilkan waveform dan persentase keramaian secara real-time.
+SilentGuard Lab adalah web app pemantau kebisingan lab. Mikrofon di browser menangkap suara, backend Python mengklasifikasikannya (berisik atau tenang) memakai Model 4.0 (112 fitur, akurasi holdout 97.56%), dan sistem membunyikan alarm pada ambang skor 60% dan 80%. Dashboard menampilkan waveform dan persentase keramaian secara real-time.
 
 ## Struktur folder
 
-- `web/`: aplikasi Next.js (App Router, TypeScript, Tailwind CSS v4)
+- `frontend/`: aplikasi Next.js (App Router, TypeScript, Tailwind CSS v4)
 - `backend/`: FastAPI, Uvicorn, scikit-learn, joblib, numpy, librosa
-- `model2.0/`: sumber model (.joblib dan .pkl). Jangan mengubah atau menimpa isinya. Backend membaca lewat `MODEL_DIR` (default `../model2.0`).
+- `backend/models/`: artefak Model 4.0 (.joblib dan .pkl). Model lama di `model2.0/` hanya untuk eksperimen pembanding.
 - `docs/`: dokumen spesifikasi
 - `alrm/`: file audio alarm sumber (`alarm60%.mp3`, `alarm80%.mp3`)
 
@@ -27,8 +27,8 @@ Jika kode bertentangan dengan dokumen, dokumen yang benar.
 ## Perintah
 
 ```bash
-# Frontend (web/)
-cd web
+# Frontend
+cd frontend
 npm install
 npm run dev          # http://localhost:3000
 npm run build
@@ -47,8 +47,8 @@ pytest               # termasuk uji paritas model
 ## Aturan kode
 
 - TypeScript dengan `strict` aktif. Hindari `any`.
-- Komponen React berupa function component dengan hooks. Logika audio dan alarm ditaruh di `web/lib/`, bukan di dalam komponen.
-- Nilai konfigurasi (ambang, window, hop, sample rate) hanya didefinisikan di `web/lib/config.ts`. Jangan menulis angka ajaib di tempat lain.
+- Komponen React berupa function component dengan hooks. Logika audio dan alarm ditaruh di `frontend/lib/`, bukan di dalam komponen.
+- Nilai konfigurasi (ambang, window, hop, sample rate) hanya didefinisikan di `frontend/lib/config.ts`. Jangan menulis angka ajaib di tempat lain.
 - Logika alarm harus identik dengan `docs/ALARM_LOGIC.md` dan punya unit test untuk semua skenario di dokumen itu.
 - Backend: muat model sekali saat startup dari `MODEL_DIR`. Jangan memuat model di setiap request.
 - Backend: jangan menulis audio ke disk dan jangan mencatat isi audio di log.
@@ -75,4 +75,4 @@ pytest               # termasuk uji paritas model
 
 - Jangan menyimpan atau mengirim audio ke layanan pihak ketiga.
 - Jangan menambah dependensi besar tanpa persetujuan, karena ukuran bundle backend dibatasi saat deploy.
-- Jangan menyentuh file model di `model2.0/` selain membacanya.
+- Jangan menyentuh file model di `backend/models/` selain membacanya.

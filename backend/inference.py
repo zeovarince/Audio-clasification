@@ -8,15 +8,18 @@ import numpy as np
 
 from features import extract_features
 
-# Cari lokasi MODEL_DIR dari variabel lingkungan atau default relatif
-_env_model_dir = os.environ.get("MODEL_DIR", "../model2.0")
-_candidate_dirs = [
-    Path(_env_model_dir).resolve(),
-    Path(__file__).resolve().parent.parent / "model2.0",
-    Path(__file__).resolve().parent / "models",
-    Path("model2.0").resolve(),
-    Path("models").resolve(),
-]
+# Gunakan artefak Model 4.0 backend secara default. MODEL_DIR dapat
+# diarahkan secara eksplisit ke artefak lain bila memang diperlukan.
+EXPECTED_MODEL_VERSION = "4.0"
+EXPECTED_FEATURE_COUNT = 112
+_backend_dir = Path(__file__).resolve().parent
+_repo_dir = _backend_dir.parent
+_env_model_dir = os.environ.get("MODEL_DIR")
+_candidate_dirs = (
+    [Path(_env_model_dir).expanduser().resolve()]
+    if _env_model_dir
+    else [_backend_dir / "models", _repo_dir / "model4.0"]
+)
 
 MODEL_DIR = None
 for candidate in _candidate_dirs:
@@ -48,14 +51,25 @@ def load_model():
 
     if not MODEL_PATH.exists():
         raise FileNotFoundError(
-            f"File model tidak ditemukan di {MODEL_PATH}. "
-            f"Pastikan MODEL_DIR diarahkan ke folder model2.0 yang berisi file model."
+            f"Artefak Model {EXPECTED_MODEL_VERSION} tidak ditemukan di {MODEL_PATH}. "
+            "Pastikan backend/models berisi model_klasifikasi_berisik.joblib "
+            "atau arahkan MODEL_DIR ke folder artefak Model 4.0."
         )
 
     _bundle = joblib.load(MODEL_PATH)
     _model = _bundle["model"]
     _feature_columns = list(_bundle["features"])
     _sample_rate = int(_bundle.get("sr", 22050))
+
+    actual_feature_count = len(_feature_columns)
+    if actual_feature_count != EXPECTED_FEATURE_COUNT:
+        _bundle = None
+        _model = None
+        _feature_columns = []
+        raise ValueError(
+            f"Model {EXPECTED_MODEL_VERSION} harus memakai {EXPECTED_FEATURE_COUNT} fitur; "
+            f"artefak ini meminta {actual_feature_count}."
+        )
 
     # Temukan indeks kelas "berisik" (label 1) secara dinamis dari model.classes_
     classes = _model.classes_
@@ -89,6 +103,7 @@ def get_model_info():
 
     return {
         "model_loaded": _model is not None,
+        "model_version": EXPECTED_MODEL_VERSION if _model is not None else None,
         "model_path": str(MODEL_PATH),
         "sample_rate": _sample_rate,
         "feature_count": len(_feature_columns),
@@ -111,7 +126,7 @@ def predict_noise_probability(samples: np.ndarray, sample_rate: int) -> Tuple[fl
     if _model is None:
         load_model()
 
-    # Ekstraksi 100 fitur spektral
+    # Ekstraksi 112 fitur spektral Model 4.0
     features_dict = extract_features(samples, sr=sample_rate)
 
     # Susun vektor fitur dalam urutan tepat yang diharapkan model pipeline

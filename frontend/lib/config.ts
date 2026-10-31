@@ -43,4 +43,4 @@ export const JUMP_TO_ALARM_2 = true;
 export const SMOOTHING_WINDOW = 3;
 
 /** Sensitivitas / penguatan gain mikrofon default (pengali) */
-export const DEFAULT_MIC_GAIN = 2.0;
+export const DEFAULT_MIC_GAIN = 1.0;

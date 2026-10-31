@@ -1,116 +1,69 @@
-# MODEL_SPEC: Spesifikasi Model Klasifikasi Audio
+# Spesifikasi Model SilentGuard Lab
 
-Dokumen ini memastikan backend memproses audio dengan cara yang sama persis seperti saat training.
+Dokumen ini menjelaskan kontrak inferensi yang digunakan backend dan frontend.
 
-## 1. File model
-
-| File | Lokasi | Isi | Cara memuat |
-|---|---|---|---|
-| `model_klasifikasi_berisik.joblib` | `model2.0/` (diakses via env `MODEL_DIR`) | Dictionary berisi bundle: model `Pipeline` (StandardScaler, SelectKBest k=60, SVC RBF C=3 gamma=0.05 probability=True), list 100 nama fitur, sample rate 22050 | `joblib.load` |
-| `model_klasifikasi_berisik.pkl` | `model2.0/` | Bundle identik dalam format pickle | `joblib.load` |
-
-Peringatan keamanan: file `.joblib` dan `.pkl` bisa mengeksekusi kode saat dimuat. Hanya muat file yang dibuat sendiri dari repositori ini.
-
-## 2. Lingkungan training (terekam dari serialisasi model)
+## 1. Artefak model yang dijalankan
 
 | Item | Nilai |
 |---|---|
-| Versi Python | 3.10 / 3.11 |
-| Versi scikit-learn | 1.6.1 |
-| Versi numpy | 2.2.x |
-| Versi librosa | 0.11.x |
-| Versi joblib | 1.5.x |
+| Versi | Model 4.0 |
+| File default | `backend/models/model_klasifikasi_berisik.joblib` |
+| Fitur | 112, sesuai urutan `bundle["features"]` |
+| Pipeline | `StandardScaler` → `SelectKBest(f_classif, k=80)` → `SVC(RBF, C=12.0, gamma=0.025, probability=True)` |
+| Sample rate bundle | 22050 Hz |
+| Runtime scikit-learn | 1.6.1 |
 
-Versi ini dikunci di `backend/requirements.txt` agar tidak terjadi penyimpangan hasil transformasi fitur atau inferensi SVM.
+`backend/inference.py` memilih artefak di `backend/models/` secara default dan menolak bundle yang tidak memiliki 112 fitur. Set `MODEL_DIR` hanya jika ingin memilih direktori model secara eksplisit.
 
-## 3. Parameter audio
+File joblib/pickle dapat menjalankan kode saat dimuat. Gunakan hanya artefak dari repository tepercaya.
+
+## 2. Kontrak audio
 
 | Parameter | Nilai |
 |---|---|
+| Kanal | Mono |
 | Sample rate | 22050 Hz |
-| Jumlah channel | 1 (mono) |
-| Durasi satu potongan (window) | 5.0 detik (110.250 sampel pada 22050 Hz) |
-| Hop antar potongan saat streaming | 1.0 detik (22.050 sampel) |
-| Normalisasi amplitudo | float32 dalam rentang -1.0 sampai 1.0 (dikonversi dari Int16 PCM: `samples.astype(np.float32) / 32768.0`) |
-| Padding atau pemotongan jika audio lebih pendek | Pad nol di akhir jika kurang dari 5 detik |
+| Durasi window frontend | 5 detik (110250 sampel) |
+| Jeda kirim frontend | 1 detik |
+| Bentuk input API | PCM Int16 little-endian |
+| Konversi backend | `int16.astype(float32) / 32768.0` |
 
-Nilai sample rate (22050 Hz) dan window (5.0 detik) dipakai langsung oleh frontend saat merekam dan mengirim audio ke backend.
+Frontend meminta `AudioContext` pada 22050 Hz, merata-ratakan kanal ke mono, dan mengirim `X-Sample-Rate: 22050`. Backend menolak sample rate yang tidak cocok dengan sample rate model.
 
-## 4. Ekstraksi fitur
+## 3. Fitur inferensi
 
-Fungsi ekstraksi fitur disalin langsung dari Cell 14 `model2.0/klasifikasi_berisik_audio.ipynb` ke `backend/features.py`.
+`backend/features.py` mengikuti fungsi ekstraksi di `model4.0/klasifikasi-audioV4.ipynb`:
 
-| Item | Nilai |
-|---|---|
-| Jenis fitur | Energi RMS dB, statistik noise floor pada 20% frame tersunyi (flatness, centroid, ZCR, bandwidth, rolloff), 20 koefisien MFCC (mean, std, quiet), 8-band noise floor mel, dan spectral contrast |
-| Parameter fitur | STFT n_fft=2048, hop_length=512, n_mels=40, n_mfcc=20 |
-| Agregasi | mean, std, dan nilai pada frame tersunyi (quiet = 20% frame terendah RMS dB) |
-| Panjang vektor fitur | 100 fitur numerik float64 |
-| Urutan fitur | Sesuai kunci kamus `bundle['features']`: `rmsdb_p5`, `rmsdb_p10`, ..., `noise_band8`, `contrast1`..`contrast7` |
-| Scaler dan Feature Selector | Terintegrasi langsung dalam objek `Pipeline` di dalam file model (`StandardScaler` -> `SelectKBest(k=60)` -> `SVC`) |
+- 100 fitur dasar RMS-dB, statistik spektral, MFCC, mel noise-floor, dan spectral contrast.
+- 7 fitur rekayasa Model 3.0: `dyn_ratio`, `snr_dyn_ratio`, `hf_energy_ratio`, `cent_bw_ratio`, `roll_cent_ratio`, `flat_cent_prod`, `snr_ratio_p95_p5`.
+- 5 fitur transien Model 4.0: `peak_to_p50`, `crest_factor`, `std_sum`, `vocal_ratio`, `hf_spectral`.
 
-## 5. Output model
+Backend menyusun matriks dengan urutan fitur yang tersimpan di bundle, bukan urutan kamus lokal.
 
-| Item | Nilai |
-|---|---|
-| Kelas | `[0, 1]` (0 = non-berisik, 1 = berisik) |
-| Metode prediksi | `predict_proba` (tersedia karena SVC dikonfigurasi dengan `probability=True`) |
-| Indeks kelas "berisik" | Cari dinamis lewat `np.where(model.classes_ == 1)[0][0]` |
-| Nilai yang dikirim ke frontend | Probabilitas kelas "berisik" (float antara 0.0 sampai 1.0) |
+## 4. Output API
 
-## 6. Performa model
+`POST /predict` mengembalikan:
 
-| Metrik | Nilai |
-|---|---|
-| Akurasi Holdout Test (20%, n=41) | 92.68% (0.927) |
-| Precision (berisik) | 1.000 (100%) |
-| Recall (berisik) | 0.857 (85.7%) |
-| F1-Score (berisik) | 0.923 |
-| Data uji | 41 sampel (20 non-berisik, 21 berisik) dari 201 total sampel |
-| Data latih | 160 sampel (80 non-berisik, 80 berisik) dari total 201 file audio lab |
-
-Catatan: Model memiliki presisi 1.000 pada kelas berisik dan recall 1.000 pada kelas non-berisik, yang berarti suara tenang tidak pernah salah dituduh berisik.
-
-## 7. Keterbatasan yang diketahui
-
-- Model dilatih pada dataset audio lab bersampel 201 file. Suara derau kipas atau pendingin ruangan yang statis tergolong noise floor dan dikenali dengan baik, namun suara ketukan mendadak yang sangat singkat mungkin memerlukan rata-rata bergerak (smoothing window) agar tidak memicu alarm palsu.
-- Rekaman audio harus dikonversi ke sample rate 22050 Hz mono agar ekstraksi fitur menghasilkan koefisien spektral yang presisi.
-
-## 8. Kerangka kode inferensi
-
-```python
-# backend/inference.py
-import os
-from pathlib import Path
-import joblib
-import numpy as np
-
-from features import extract_features
-
-MODEL_DIR = Path(os.environ.get("MODEL_DIR", "../model2.0")).resolve()
-MODEL_PATH = MODEL_DIR / "model_klasifikasi_berisik.joblib"
-if not MODEL_PATH.exists():
-    MODEL_PATH = MODEL_DIR / "model_klasifikasi_berisik.pkl"
-
-bundle = joblib.load(MODEL_PATH)
-model = bundle["model"]
-feature_columns = bundle["features"]
-SAMPLE_RATE = int(bundle.get("sr", 22050))
-
-# Cari indeks kelas berisik (label 1)
-NOISY_INDEX = int(np.where(model.classes_ == 1)[0][0])
-
-
-def predict_noise_probability(samples: np.ndarray, sample_rate: int) -> float:
-    """samples: float32 mono dalam rentang -1.0 sampai 1.0."""
-    features_dict = extract_features(samples, sample_rate)
-    vector = np.array([[features_dict[col] for col in feature_columns]], dtype=np.float64)
-    proba = model.predict_proba(vector)[0]
-    return float(proba[NOISY_INDEX])
+```json
+{
+  "noise_probability": 0.73,
+  "label": "berisik",
+  "processing_ms": 42
+}
 ```
 
-## 9. Uji paritas
+`noise_probability` adalah probabilitas kelas berisik pada rentang 0–1. Frontend mengubahnya menjadi persentase sebelum smoothing dan membandingkannya dengan ambang 60% dan 80%.
 
-1. Referensi nilai golden tersimpan di `backend/tests/golden.json`.
-2. Test otomatis dijalankan lewat `pytest backend/tests/test_parity.py`.
-3. Toleransi selisih probabilitas maksimal 0.01.
+`GET /health` melaporkan `model_loaded`, `model_version`, `feature_count`, `sample_rate`, dan `sklearn_version`. Deploy dianggap sehat hanya jika Model 4.0 berhasil dimuat dan warm-up inferensinya berhasil.
+
+## 5. Akurasi dan batas penggunaan
+
+Model 4.0 mencapai akurasi holdout **97.56% (40 dari 41 file)** pada evaluasi yang tercatat di `model4.0/README.md`. Angka ini mengukur holdout dataset tersebut; akurasi pada mikrofon langsung dapat berbeda karena karakteristik ruang, perangkat, posisi mikrofon, dan gain.
+
+## 6. Pemeriksaan paritas
+
+`backend/tests/golden.json` berasal dari sebelum artefak backend diperbarui ke Model 4.0; nilainya belum membuktikan paritas Model 4.0. Regenerasi reference tersebut dengan Model 4.0 dan scikit-learn 1.6.1 sebelum menganggap uji golden lulus. Jalankan pemeriksaan dari root repository dengan:
+
+```bash
+python -m pytest backend/tests/test_parity.py
+```

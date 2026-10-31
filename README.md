@@ -97,10 +97,10 @@ Audio-clasification/
 ├── backend/                           # Layanan Backend FastAPI
 │   ├── main.py                        # Server FastAPI & CORS middleware
 │   ├── inference.py                   # Pipeline inferensi SVC (load model saat startup)
-│   ├── features.py                    # Ekstraksi 100 fitur audio (paritas training)
+│   ├── features.py                    # Ekstraksi 112 fitur Model 4.0
 │   ├── requirements.txt               # Dependensi Python
 │   ├── Dockerfile                     # Container production-ready
-│   ├── vercel.json                    # Konfigurasi deploy serverless Vercel
+│   ├── vercel.json                    # Konfigurasi legacy; deploy aktif memakai Docker Compose
 │   ├── models/                        # Salinan model untuk deployment
 │   │   ├── model_klasifikasi_berisik.joblib
 │   │   └── model_klasifikasi_berisik.pkl
@@ -196,7 +196,7 @@ Audio-clasification/
 | **Backend** | FastAPI 0.115, Uvicorn 0.34, Python 3.10+ |
 | **Machine Learning** | scikit-learn 1.6.1, librosa 0.10.2, numpy 2.2, joblib 1.4 |
 | **Containerisasi** | Docker (multi-platform, non-root user) |
-| **Deploy** | Vercel (frontend), Hugging Face Spaces / Render / Railway (backend) |
+| **Deploy** | Docker Compose di server lab, port 8007 |
 
 ---
 
@@ -238,8 +238,9 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 **Backend** (variabel lingkungan):
 ```env
 ALLOWED_ORIGINS=http://localhost:3000
-MODEL_DIR=../model2.0
+MODEL_DIR=./models
 ```
+Folder `backend/models/` berisi artefak Model 4.0. Jika `MODEL_DIR` tidak disetel, backend otomatis memakai folder itu.
 
 ---
 
@@ -268,6 +269,8 @@ MODEL_DIR=../model2.0
 {
   "status": "ok",
   "model_loaded": true,
+  "model_version": "4.0",
+  "feature_count": 112,
   "sklearn_version": "1.6.1"
 }
 ```
@@ -319,7 +322,7 @@ Untuk mengaktifkan deploy otomatis setiap push ke branch `main`, siapkan SSH ser
 - Satu responden menyumbang beberapa file. Evaluasi di atas adalah evaluasi *per file*; untuk mengukur generalisasi ke responden baru, dapat diuji dengan `StratifiedGroupKFold`.
 - Ukuran holdout test adalah 41 file (20 non-berisik, 21 berisik).
 - Karakteristik derau suara latar bersifat subjektif; sebagian rekaman memiliki noise yang sangat halus.
-- File model dan `backend/features.py` menggunakan 112 fitur Model 4.0, termasuk rekayasa fitur Gen-3 dan Gen-4.
+- File model dan `backend/features.py` menggunakan 112 fitur Model 4.0, termasuk rekayasa fitur Gen-3 dan Gen-4. Akurasi 97.56% adalah hasil holdout test 41 file; hasil inferensi mikrofon langsung dapat berbeda karena kondisi ruangan, mikrofon, dan gain perangkat.
 
 ---
 
