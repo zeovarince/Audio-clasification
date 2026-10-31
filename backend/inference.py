@@ -70,12 +70,15 @@ def load_model():
         else:
             _noisy_index = 1
 
-    # Lakukan warm-up forward pass agar inferensi awal tidak tertunda
+    # Warm-up juga memastikan fitur model tersedia sebelum service dianggap sehat.
     try:
         dummy_audio = np.zeros(_sample_rate * 2, dtype=np.float32)
         predict_noise_probability(dummy_audio, _sample_rate)
     except Exception:
-        pass
+        _bundle = None
+        _model = None
+        _feature_columns = []
+        raise
 
     return _model
 

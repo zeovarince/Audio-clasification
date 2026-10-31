@@ -274,28 +274,15 @@ MODEL_DIR=../model2.0
 
 ---
 
-## 8. Panduan Deploy ke Produksi
+## 8. Deploy dengan Docker ke Server Lab
 
-### A. Deploy Frontend ke Vercel
+Docker Compose menjalankan dashboard Next.js dan API FastAPI sebagai dua container. Buka `http://localhost:8007` setelah menjalankan:
 
-1. Hubungkan repository GitHub ke [Vercel](https://vercel.com).
-2. Atur **Root Directory** ke folder `frontend`.
-3. Tambahkan Environment Variable:
-   - `NEXT_PUBLIC_API_URL`: URL publik backend FastAPI Anda.
-4. Klik **Deploy**.
+```bash
+docker compose up --build
+```
 
-### B. Deploy Backend (Docker / Render / Hugging Face Spaces)
-
-Backend telah dilengkapi dengan `backend/Dockerfile` multi-platform:
-
-1. **Hugging Face Spaces**:
-   - Buat Space baru, pilih SDK **Docker**.
-   - Push isi folder `backend/`.
-   - Atur environment variable `ALLOWED_ORIGINS` ke domain Vercel frontend.
-
-2. **Render**:
-   - Buat **Web Service**, pilih **Docker**, arahkan root directory ke `backend`.
-   - Atur environment variable `ALLOWED_ORIGINS` ke domain frontend.
+Untuk mengaktifkan deploy otomatis setiap push ke branch `main`, siapkan SSH server dan GitHub Secrets sesuai [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md). Untuk akses mikrofon dari komputer lain, server perlu HTTPS.
 
 ---
 
@@ -332,7 +319,7 @@ Backend telah dilengkapi dengan `backend/Dockerfile` multi-platform:
 - Satu responden menyumbang beberapa file. Evaluasi di atas adalah evaluasi *per file*; untuk mengukur generalisasi ke responden baru, dapat diuji dengan `StratifiedGroupKFold`.
 - Ukuran holdout test adalah 41 file (20 non-berisik, 21 berisik).
 - Karakteristik derau suara latar bersifat subjektif; sebagian rekaman memiliki noise yang sangat halus.
-- File model di `backend/models/` sudah menggunakan **Model 4.0** (92 KB, Pure SVM 112 fitur). Namun `backend/features.py` masih mengekstrak **100 fitur** (paritas Model 2.0). Jika model 4.0 membutuhkan 12 fitur Gen-4 tambahan (`hf_energy_ratio`, `cent_bw_ratio`, `roll_cent_ratio`, `flat_cent_prod`, `snr_ratio_p95_p5`, `peak_to_p50`, `crest_factor`, `std_sum`, `vocal_ratio`, `hf_spectral`, dll.), maka `features.py` perlu diperbarui agar pipeline inferensi backend sepenuhnya kompatibel.
+- File model dan `backend/features.py` menggunakan 112 fitur Model 4.0, termasuk rekayasa fitur Gen-3 dan Gen-4.
 
 ---
 

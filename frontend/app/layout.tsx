@@ -1,22 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-untitled-sans",
-  weight: ["400", "500", "600"],
-});
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-aeonikpro",
-  weight: ["400", "500"],
-});
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-dotdigital",
-  weight: ["400"],
-});
 
 export const metadata: Metadata = {
   title: "SilentGuard Lab – Pemantau Kebisingan Lab",
@@ -35,10 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="id"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}
-    >
+    <html lang="id">
       <body>{children}</body>
     </html>
   );

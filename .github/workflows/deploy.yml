@@ -1,50 +1,57 @@
-name: Auto Deploy to Server
+name: Deploy SilentGuard Lab to the lab server
 
 on:
   push:
     branches:
       - main
 
+concurrency:
+  group: silentguard-lab-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    name: Deploy to Server via SSH
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: SSH and Deploy Docker Container
+      - name: Pull and deploy on the lab server
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          SERVER_PATH: ${{ secrets.SERVER_PATH }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_PORT || 22 }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
+          fingerprint: ${{ secrets.SERVER_HOST_FINGERPRINT }}
+          command_timeout: 30m
+          envs: SERVER_PATH
           script: |
-            set -e
-            echo "=========================================="
-            echo "Memulai proses deploy otomatis di server..."
-            echo "=========================================="
-            
-            # Masuk ke folder project di server
-            cd "${{ secrets.SERVER_PATH }}"
-            
-            # Tarik kode terbaru dari GitHub
-            echo "1. Menarik pembaruan dari branch main..."
-            git fetch origin main
-            git reset --hard origin/main
-            
-            # Jalankan docker compose (kompatibel dengan docker compose v2 maupun v1)
-            echo "2. Membangun dan me-restart container Docker di port 8007..."
-            if command -v docker &> /dev/null && docker compose version &> /dev/null; then
-              docker compose down
-              docker compose up -d --build
-            else
-              docker-compose down
-              docker-compose up -d --build
-            fi
-            
-            # Bersihkan image cache lama agar disk server tidak penuh
-            docker image prune -f
-            
-            echo "=========================================="
-            echo "Deploy selesai! Service aktif di port 8007."
-            echo "=========================================="
+            set -eu
+            cd "$SERVER_PATH"
+            git pull --ff-only origin main
+            docker compose up --build --detach --remove-orphans
+
+            attempt=0
+            until docker compose exec -T backend python -c "import json, urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)); assert d.get('status') == 'ok' and d.get('model_loaded') is True, d"; do
+              attempt=$((attempt + 1))
+              if [ "$attempt" -ge 30 ]; then
+                docker compose logs --tail=100
+                exit 1
+              fi
+              sleep 2
+            done
+
+            attempt=0
+            until docker compose exec -T frontend node -e "fetch('http://127.0.0.1:3000').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"; do
+              attempt=$((attempt + 1))
+              if [ "$attempt" -ge 30 ]; then
+                docker compose logs --tail=100
+                exit 1
+              fi
+              sleep 2
+            done
+
+            docker compose ps

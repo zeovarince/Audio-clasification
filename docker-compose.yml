@@ -1,17 +1,52 @@
+name: silentguard-lab
+
 services:
-  sound-lab:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: sound-lab-app
+      target: api
+    image: silentguard-api:latest
     restart: unless-stopped
-    ports:
-      - "8007:8007"
     environment:
-      - PORT=8007
-      - LOG_LEVEL=INFO
-      - ALLOWED_ORIGINS=*
-    volumes:
-      - ./data:/app/data:ro
-      - ./samples:/app/samples:ro
-      - ./audio_alarm:/app/audio_alarm:ro
+      PORT: "8000"
+      MODEL_DIR: /app/models
+      ALLOWED_ORIGINS: http://localhost:8007,http://127.0.0.1:8007
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import json, urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)); assert d.get('status') == 'ok' and d.get('model_loaded') is True, d"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+      args:
+        NEXT_PUBLIC_API_URL: /api
+        API_INTERNAL_URL: http://backend:8000
+    image: silentguard-web:latest
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8007:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

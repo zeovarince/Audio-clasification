@@ -31,9 +31,9 @@
   --color-status-alert: #e46d4c;
 
   /* Typography — Font Families */
-  --font-untitled-sans: var(--font-untitled-sans), 'Untitled Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-aeonikpro: var(--font-aeonikpro), 'aeonikPro', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-dotdigital: var(--font-dotdigital), 'dotDigital', ui-monospace, monospace;
+  --font-untitled-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-aeonikpro: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-dotdigital: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
 
   /* Legacy aliases for existing components */
   --font-sans: var(--font-untitled-sans);
@@ -159,9 +159,9 @@
   --color-glass-edge: #bad7f71f;
   --color-luminous-fill: #c7d3ea1f;
 
-  --font-untitled-sans: var(--font-untitled-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-aeonikpro: var(--font-aeonikpro), ui-sans-serif, system-ui, sans-serif;
-  --font-dotdigital: var(--font-dotdigital), ui-monospace, monospace;
+  --font-untitled-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-aeonikpro: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-dotdigital: "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* ---- Base ---- */
