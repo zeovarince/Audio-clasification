@@ -3,7 +3,7 @@
  * Mengelola getUserMedia, AudioContext, AnalyserNode, dan AudioWorklet.
  */
 
-import { SAMPLE_RATE, WINDOW_SECONDS, HOP_SECONDS } from "./config";
+import { SAMPLE_RATE, WINDOW_SECONDS, HOP_SECONDS, DEFAULT_MIC_GAIN } from "./config";
 import { predict, type PredictResponse } from "./api";
 
 export interface AudioCaptureCallbacks {
@@ -16,14 +16,19 @@ export interface AudioCapture {
   start: () => Promise<void>;
   stop: () => void;
   isActive: () => boolean;
+  setGain: (gain: number) => void;
 }
 
-export function createAudioCapture(callbacks: AudioCaptureCallbacks): AudioCapture {
+export function createAudioCapture(
+  callbacks: AudioCaptureCallbacks,
+  initialGain: number = DEFAULT_MIC_GAIN
+): AudioCapture {
   let audioContext: AudioContext | null = null;
   let stream: MediaStream | null = null;
   let workletNode: AudioWorkletNode | null = null;
   let analyser: AnalyserNode | null = null;
   let active = false;
+  let currentGain = initialGain;
 
   // Ring buffer untuk menyimpan WINDOW_SECONDS sampel terakhir
   const bufferSize = Math.ceil(SAMPLE_RATE * WINDOW_SECONDS);
@@ -46,12 +51,12 @@ export function createAudioCapture(callbacks: AudioCaptureCallbacks): AudioCaptu
     if (active) return;
 
     try {
-      // Minta izin mikrofon
+      // Minta izin mikrofon dengan AGC aktif agar suara tidak terlalu kecil
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false,
+          autoGainControl: true,
         },
       });
 
@@ -108,10 +113,10 @@ export function createAudioCapture(callbacks: AudioCaptureCallbacks): AudioCaptu
           windowSamples[i] = ringBuffer[(writePos + i) % bufferSize];
         }
 
-        // Konversi Float32 ke Int16
+        // Konversi Float32 ke Int16 dengan penguatan sensitivitas gain
         const int16 = new Int16Array(bufferSize);
         for (let i = 0; i < bufferSize; i++) {
-          const s = Math.max(-1, Math.min(1, windowSamples[i]));
+          const s = Math.max(-1, Math.min(1, windowSamples[i] * currentGain));
           int16[i] = s < 0 ? s * 32768 : s * 32767;
         }
 
@@ -177,5 +182,8 @@ export function createAudioCapture(callbacks: AudioCaptureCallbacks): AudioCaptu
     start,
     stop,
     isActive: () => active,
+    setGain: (gain: number) => {
+      currentGain = Math.max(0.5, Math.min(10, gain));
+    },
   };
 }

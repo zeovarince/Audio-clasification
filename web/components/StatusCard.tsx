@@ -5,9 +5,18 @@ import type { AlarmState } from "@/lib/alarm-machine";
 interface StatusCardProps {
   alarmState: AlarmState;
   isActive: boolean;
+  calmRemainingSeconds?: number;
+  confirmRemainingSeconds?: number;
+  repeatRemainingSeconds?: number;
 }
 
-export default function StatusCard({ alarmState, isActive }: StatusCardProps) {
+export default function StatusCard({
+  alarmState,
+  isActive,
+  calmRemainingSeconds,
+  confirmRemainingSeconds,
+  repeatRemainingSeconds,
+}: StatusCardProps) {
   const key = !isActive ? "idle" : alarmState;
   const isPulsing = key === "PERINGATAN_2";
 
@@ -33,6 +42,30 @@ export default function StatusCard({ alarmState, isActive }: StatusCardProps) {
     iconNode = (
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-status-safe)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 6L9 17l-5-5" />
+      </svg>
+    );
+  } else if (key === "MENUNGGU_1") {
+    title = "Mendeteksi Kebisingan...";
+    description = "Skor melewati 60%. Mengkonfirmasi apakah benar-benar ramai...";
+    colorClass = "status-warn";
+    bgColor = "rgba(228, 176, 76, 0.08)";
+    borderColor = "rgba(228, 176, 76, 0.3)";
+    iconNode = (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-ember-glow)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    );
+  } else if (key === "MENUNGGU_2") {
+    title = "Mendeteksi Kebisingan Tinggi...";
+    description = "Skor melewati 80%. Mengkonfirmasi apakah benar-benar sangat ramai...";
+    colorClass = "status-warn";
+    bgColor = "rgba(228, 109, 76, 0.10)";
+    borderColor = "rgba(228, 109, 76, 0.35)";
+    iconNode = (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ff8260" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
       </svg>
     );
   } else if (key === "PERINGATAN_1") {
@@ -62,6 +95,12 @@ export default function StatusCard({ alarmState, isActive }: StatusCardProps) {
       </svg>
     );
   }
+
+  // Tentukan warna dot di footer berdasarkan state
+  let footerDotColor = "var(--color-status-safe)";
+  if (key === "PERINGATAN_2") footerDotColor = "var(--color-status-alert)";
+  else if (key === "PERINGATAN_1") footerDotColor = "var(--color-status-warn)";
+  else if (key === "MENUNGGU_1" || key === "MENUNGGU_2") footerDotColor = "var(--color-ember-glow)";
 
   return (
     <div
@@ -132,6 +171,104 @@ export default function StatusCard({ alarmState, isActive }: StatusCardProps) {
         >
           {description}
         </p>
+
+        {/* Indikator Hitung Mundur Konfirmasi Alarm */}
+        {confirmRemainingSeconds !== undefined && confirmRemainingSeconds > 0 && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "rgba(228, 176, 76, 0.12)",
+              border: "1px solid rgba(228, 176, 76, 0.35)",
+              padding: "6px 14px",
+              borderRadius: "999px",
+              fontSize: "12px",
+              fontFamily: "var(--font-mono)",
+              color: "#e4b04c",
+              marginTop: "14px",
+              boxShadow: "0 2px 8px rgba(228, 176, 76, 0.15)",
+            }}
+          >
+            <span
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "#e4b04c",
+                display: "inline-block",
+                boxShadow: "0 0 8px #e4b04c",
+                animation: "pulse 1s infinite",
+              }}
+            />
+            Mengkonfirmasi: {confirmRemainingSeconds} detik tersisa
+          </div>
+        )}
+
+        {/* Indikator Hitung Mundur Tahan Tenang */}
+        {calmRemainingSeconds !== undefined && calmRemainingSeconds > 0 && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "rgba(228, 109, 76, 0.12)",
+              border: "1px solid rgba(228, 109, 76, 0.35)",
+              padding: "6px 14px",
+              borderRadius: "999px",
+              fontSize: "12px",
+              fontFamily: "var(--font-mono)",
+              color: "#ff9f84",
+              marginTop: "14px",
+              boxShadow: "0 2px 8px rgba(228, 109, 76, 0.15)",
+            }}
+          >
+            <span
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "#ff8260",
+                display: "inline-block",
+                boxShadow: "0 0 8px #ff8260",
+              }}
+            />
+            Menahan tenang: {calmRemainingSeconds} detik tersisa
+          </div>
+        )}
+
+        {/* Indikator Hitung Mundur Pengulangan Alarm (Jika masih ramai) */}
+        {repeatRemainingSeconds !== undefined && repeatRemainingSeconds > 0 && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "rgba(228, 109, 76, 0.12)",
+              border: "1px solid rgba(228, 109, 76, 0.35)",
+              padding: "6px 14px",
+              borderRadius: "999px",
+              fontSize: "12px",
+              fontFamily: "var(--font-mono)",
+              color: "#ff9f84",
+              marginTop: "14px",
+              boxShadow: "0 2px 8px rgba(228, 109, 76, 0.15)",
+            }}
+          >
+            <span
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "#ff8260",
+                display: "inline-block",
+                boxShadow: "0 0 8px #ff8260",
+                animation: "pulse 1s infinite",
+              }}
+            />
+            Bunyi lagi dalam: {repeatRemainingSeconds}s jika masih ramai
+          </div>
+        )}
       </div>
 
       {/* Footer kartu: indikator live real-time */}
@@ -157,7 +294,7 @@ export default function StatusCard({ alarmState, isActive }: StatusCardProps) {
               width: "6px",
               height: "6px",
               borderRadius: "50%",
-              background: key === "PERINGATAN_2" ? "var(--color-status-alert)" : key === "PERINGATAN_1" ? "var(--color-status-warn)" : "var(--color-status-safe)",
+              background: footerDotColor,
               display: "inline-block",
             }}
           />

@@ -31,6 +31,28 @@ export default function StatusPill({ alarmState, isActive }: StatusPillProps) {
         <polyline points="12 6 12 12 16 14" />
       </svg>
     );
+  } else if (key === "MENUNGGU_1") {
+    label = "Mengkonfirmasi (60%)...";
+    color = "var(--color-ember-glow)";
+    bg = "rgba(228, 176, 76, 0.12)";
+    dotColor = "var(--color-ember-glow)";
+    icon = (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    );
+  } else if (key === "MENUNGGU_2") {
+    label = "Mengkonfirmasi (80%)...";
+    color = "#ff8260";
+    bg = "rgba(228, 109, 76, 0.15)";
+    dotColor = "var(--color-status-alert)";
+    icon = (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    );
   } else if (key === "PERINGATAN_1") {
     label = "Mulai Ramai (60%)";
     color = "var(--color-ember-glow)";

@@ -28,8 +28,19 @@ export const DEFAULT_THRESHOLD_2 = 80;
 /** Durasi skor harus di bawah THRESHOLD_1 sebelum kembali tenang (detik) */
 export const DEFAULT_CALM_HOLD_SECONDS = 3;
 
+/** Durasi konfirmasi: skor harus tetap di atas threshold selama X detik
+ *  sebelum alarm benar-benar berbunyi (detik) */
+export const DEFAULT_CONFIRM_DELAY_SECONDS = 5;
+
+/** Jeda pengulangan alarm: jika ruangan masih terus ramai,
+ *  alarm akan berbunyi lagi setiap X detik */
+export const DEFAULT_ALARM_REPEAT_SECONDS = 10;
+
 /** Jika true, lonjakan langsung >= THRESHOLD_2 dari AMAN langsung memicu alarm 2 */
 export const JUMP_TO_ALARM_2 = true;
 
 /** Jumlah hasil prediksi terakhir yang dirata-ratakan */
-export const SMOOTHING_WINDOW = 5;
+export const SMOOTHING_WINDOW = 3;
+
+/** Sensitivitas / penguatan gain mikrofon default (pengali) */
+export const DEFAULT_MIC_GAIN = 2.0;

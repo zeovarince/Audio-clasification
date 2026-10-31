@@ -5,6 +5,7 @@
 
 export function createSmoother(windowSize: number) {
   const buffer: number[] = [];
+  let currentDisplayScore = 0;
 
   function push(value: number): number {
     buffer.push(value);
@@ -12,17 +13,26 @@ export function createSmoother(windowSize: number) {
       buffer.shift();
     }
     const sum = buffer.reduce((a, b) => a + b, 0);
-    return Math.round((sum / buffer.length) * 100);
+    const targetScore = Math.round((sum / buffer.length) * 100);
+
+    // Fast attack (langsung naik jika kebisingan meningkat)
+    // Smooth release (turun secara luwes dan halus, maks -12% per detik)
+    if (targetScore >= currentDisplayScore) {
+      currentDisplayScore = targetScore;
+    } else {
+      currentDisplayScore = Math.max(targetScore, currentDisplayScore - 12);
+    }
+
+    return currentDisplayScore;
   }
 
   function reset() {
     buffer.length = 0;
+    currentDisplayScore = 0;
   }
 
   function getScore(): number {
-    if (buffer.length === 0) return 0;
-    const sum = buffer.reduce((a, b) => a + b, 0);
-    return Math.round((sum / buffer.length) * 100);
+    return currentDisplayScore;
   }
 
   return { push, reset, getScore };

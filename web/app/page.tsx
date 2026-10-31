@@ -21,6 +21,9 @@ import {
   DEFAULT_THRESHOLD_1,
   DEFAULT_THRESHOLD_2,
   DEFAULT_CALM_HOLD_SECONDS,
+  DEFAULT_CONFIRM_DELAY_SECONDS,
+  DEFAULT_ALARM_REPEAT_SECONDS,
+  DEFAULT_MIC_GAIN,
   JUMP_TO_ALARM_2,
   SMOOTHING_WINDOW,
 } from "@/lib/config";
@@ -32,6 +35,15 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [alarmState, setAlarmState] = useState<AlarmState>("AMAN");
   const [score, setScore] = useState<number>(0);
+  const [calmRemaining, setCalmRemaining] = useState<number | undefined>(
+    undefined
+  );
+  const [confirmRemaining, setConfirmRemaining] = useState<number | undefined>(
+    undefined
+  );
+  const [repeatRemaining, setRepeatRemaining] = useState<number | undefined>(
+    undefined
+  );
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [alarmHistory, setAlarmHistory] = useState<AlarmHistoryEntry[]>([]);
   const [isTabHidden, setIsTabHidden] = useState(false);
@@ -44,9 +56,21 @@ export default function Home() {
   const [calmHoldSeconds, setCalmHoldSeconds] = useState(
     DEFAULT_CALM_HOLD_SECONDS
   );
+  const [confirmDelaySeconds, setConfirmDelaySeconds] = useState(
+    DEFAULT_CONFIRM_DELAY_SECONDS
+  );
+  const [alarmRepeatSeconds, setAlarmRepeatSeconds] = useState(
+    DEFAULT_ALARM_REPEAT_SECONDS
+  );
+  const [micGain, setMicGain] = useState(DEFAULT_MIC_GAIN);
 
   // Referensi modul audio & logika
   const audioCaptureRef = useRef<AudioCapture | null>(null);
+
+  // Sinkronkan penguatan mikrofon secara dinamis saat slider digeser
+  useEffect(() => {
+    audioCaptureRef.current?.setGain(micGain);
+  }, [micGain]);
   const alarmMachineRef = useRef<ReturnType<typeof createAlarmMachine> | null>(
     null
   );
@@ -74,9 +98,11 @@ export default function Home() {
         threshold2,
         calmHoldMs: calmHoldSeconds * 1000,
         jumpToAlarm2: JUMP_TO_ALARM_2,
+        confirmDelayMs: confirmDelaySeconds * 1000,
+        repeatIntervalMs: alarmRepeatSeconds * 1000,
       });
     }
-  }, [threshold1, threshold2, calmHoldSeconds]);
+  }, [threshold1, threshold2, calmHoldSeconds, confirmDelaySeconds, alarmRepeatSeconds]);
 
   // Mulai pemantauan audio otomatis
   const handleStart = useCallback(async () => {
@@ -95,6 +121,8 @@ export default function Home() {
         threshold2,
         calmHoldMs: calmHoldSeconds * 1000,
         jumpToAlarm2: JUMP_TO_ALARM_2,
+        confirmDelayMs: confirmDelaySeconds * 1000,
+        repeatIntervalMs: alarmRepeatSeconds * 1000,
       });
 
       smootherRef.current = createSmoother(SMOOTHING_WINDOW);
@@ -112,6 +140,9 @@ export default function Home() {
 
           setScore(newScore);
           setAlarmState(step.state);
+          setCalmRemaining(step.calmRemainingSeconds);
+          setConfirmRemaining(step.confirmRemainingSeconds);
+          setRepeatRemaining(step.repeatRemainingSeconds);
 
           if (step.play && alarmPlayerRef.current) {
             alarmPlayerRef.current.play(step.play);
@@ -143,7 +174,7 @@ export default function Home() {
           }
           setError("Server klasifikasi belum merespons. Memeriksa koneksi lagi...");
         },
-      });
+      }, micGain);
 
       audioCaptureRef.current = capture;
       await capture.start();
@@ -167,7 +198,7 @@ export default function Home() {
         );
       }
     }
-  }, [threshold1, threshold2, calmHoldSeconds]);
+  }, [threshold1, threshold2, calmHoldSeconds, confirmDelaySeconds, alarmRepeatSeconds, micGain]);
 
   // Otomatis aktif saat halaman dimuat
   useEffect(() => {
@@ -217,6 +248,9 @@ export default function Home() {
     setThreshold1(DEFAULT_THRESHOLD_1);
     setThreshold2(DEFAULT_THRESHOLD_2);
     setCalmHoldSeconds(DEFAULT_CALM_HOLD_SECONDS);
+    setConfirmDelaySeconds(DEFAULT_CONFIRM_DELAY_SECONDS);
+    setAlarmRepeatSeconds(DEFAULT_ALARM_REPEAT_SECONDS);
+    setMicGain(DEFAULT_MIC_GAIN);
   }, []);
 
   return (
@@ -496,7 +530,13 @@ export default function Home() {
               threshold2={threshold2}
               alarmState={alarmState}
             />
-            <StatusCard alarmState={alarmState} isActive={isActive} />
+            <StatusCard
+              alarmState={alarmState}
+              isActive={isActive}
+              calmRemainingSeconds={calmRemaining}
+              confirmRemainingSeconds={confirmRemaining}
+              repeatRemainingSeconds={repeatRemaining}
+            />
           </section>
 
           {/* LOG RIWAYAT ALARM & TEST TOOLBAR */}
@@ -662,9 +702,15 @@ export default function Home() {
           threshold1={threshold1}
           threshold2={threshold2}
           calmHoldSeconds={calmHoldSeconds}
+          confirmDelaySeconds={confirmDelaySeconds}
+          alarmRepeatSeconds={alarmRepeatSeconds}
+          micGain={micGain}
           onThreshold1Change={setThreshold1}
           onThreshold2Change={setThreshold2}
           onCalmHoldChange={setCalmHoldSeconds}
+          onConfirmDelayChange={setConfirmDelaySeconds}
+          onAlarmRepeatChange={setAlarmRepeatSeconds}
+          onMicGainChange={setMicGain}
           onResetDefaults={handleResetDefaults}
         />
       </div>

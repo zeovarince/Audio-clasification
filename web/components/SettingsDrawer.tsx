@@ -6,6 +6,8 @@ import {
   DEFAULT_THRESHOLD_1,
   DEFAULT_THRESHOLD_2,
   DEFAULT_CALM_HOLD_SECONDS,
+  DEFAULT_CONFIRM_DELAY_SECONDS,
+  DEFAULT_ALARM_REPEAT_SECONDS,
 } from "@/lib/config";
 
 interface SettingsDrawerProps {
@@ -14,9 +16,15 @@ interface SettingsDrawerProps {
   threshold1: number;
   threshold2: number;
   calmHoldSeconds: number;
+  confirmDelaySeconds: number;
+  alarmRepeatSeconds: number;
+  micGain: number;
   onThreshold1Change: (v: number) => void;
   onThreshold2Change: (v: number) => void;
   onCalmHoldChange: (v: number) => void;
+  onConfirmDelayChange: (v: number) => void;
+  onAlarmRepeatChange: (v: number) => void;
+  onMicGainChange: (v: number) => void;
   onResetDefaults: () => void;
 }
 
@@ -26,9 +34,15 @@ export default function SettingsDrawer({
   threshold1,
   threshold2,
   calmHoldSeconds,
+  confirmDelaySeconds,
+  alarmRepeatSeconds,
+  micGain,
   onThreshold1Change,
   onThreshold2Change,
   onCalmHoldChange,
+  onConfirmDelayChange,
+  onAlarmRepeatChange,
+  onMicGainChange,
   onResetDefaults,
 }: SettingsDrawerProps) {
   const [healthResult, setHealthResult] = useState<string | null>(null);
@@ -176,6 +190,86 @@ export default function SettingsDrawer({
           />
         </div>
 
+        {/* Waktu Konfirmasi Alarm */}
+        <div style={{ marginBottom: "24px" }}>
+          <label
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: "14px",
+              color: "var(--color-moon-mist)",
+              marginBottom: "8px",
+            }}
+          >
+            <span>Tunda konfirmasi alarm (detik)</span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-frost-glow)",
+              }}
+            >
+              {confirmDelaySeconds}s
+            </span>
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="30"
+            value={confirmDelaySeconds}
+            onChange={(e) => onConfirmDelayChange(Number(e.target.value))}
+          />
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--color-fog-veil)",
+              marginTop: "4px",
+            }}
+          >
+            Ketika terdeteksi ramai, alarm menunggu selama ini sebelum berbunyi.
+            Jika skor turun kembali sebelum waktunya, alarm tidak jadi berbunyi.
+          </div>
+        </div>
+
+        {/* Jeda Pengulangan Alarm */}
+        <div style={{ marginBottom: "24px" }}>
+          <label
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: "14px",
+              color: "var(--color-moon-mist)",
+              marginBottom: "8px",
+            }}
+          >
+            <span>Jeda ulangi alarm (detik)</span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-frost-glow)",
+              }}
+            >
+              {alarmRepeatSeconds}s
+            </span>
+          </label>
+          <input
+            type="range"
+            min="5"
+            max="60"
+            value={alarmRepeatSeconds}
+            onChange={(e) => onAlarmRepeatChange(Number(e.target.value))}
+          />
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--color-fog-veil)",
+              marginTop: "4px",
+            }}
+          >
+            Jika ruangan masih terus ramai setelah alarm berbunyi, alarm akan
+            berbunyi ulang setiap interval detik ini.
+          </div>
+        </div>
+
         {/* Tahan Tenang */}
         <div style={{ marginBottom: "32px" }}>
           <label
@@ -200,10 +294,61 @@ export default function SettingsDrawer({
           <input
             type="range"
             min="1"
-            max="10"
+            max="30"
             value={calmHoldSeconds}
             onChange={(e) => onCalmHoldChange(Number(e.target.value))}
           />
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--color-fog-veil)",
+              marginTop: "4px",
+            }}
+          >
+            Setelah ramai, ruangan harus konsisten tenang selama durasi ini
+            sebelum status resmi kembali aman (mencegah alarm hidup-mati berulang
+            kali).
+          </div>
+        </div>
+
+        {/* Sensitivitas Mikrofon (Gain) */}
+        <div style={{ marginBottom: "32px" }}>
+          <label
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: "14px",
+              color: "var(--color-moon-mist)",
+              marginBottom: "8px",
+            }}
+          >
+            <span>Sensitivitas Mikrofon</span>
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                color: "var(--color-frost-glow)",
+              }}
+            >
+              {micGain.toFixed(1)}x
+            </span>
+          </label>
+          <input
+            type="range"
+            min="1.0"
+            max="4.0"
+            step="0.1"
+            value={micGain}
+            onChange={(e) => onMicGainChange(Number(e.target.value))}
+          />
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--color-fog-veil)",
+              marginTop: "4px",
+            }}
+          >
+            Tingkatkan penguatan jika suara ruangan terasa terlalu pelan atau persentase susah naik.
+          </div>
         </div>
 
         {/* Divider */}

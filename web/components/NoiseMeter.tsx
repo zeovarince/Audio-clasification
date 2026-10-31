@@ -20,6 +20,10 @@ export default function NoiseMeter({
       ? "var(--color-status-alert)"
       : alarmState === "PERINGATAN_1"
       ? "var(--color-status-warn)"
+      : alarmState === "MENUNGGU_2"
+      ? "rgba(228, 109, 76, 0.6)"
+      : alarmState === "MENUNGGU_1"
+      ? "rgba(228, 176, 76, 0.7)"
       : "var(--color-status-safe)";
 
   const scoreColor =
@@ -27,6 +31,10 @@ export default function NoiseMeter({
       ? "#e46d4c"
       : alarmState === "PERINGATAN_1"
       ? "rgba(228, 109, 76, 0.7)"
+      : alarmState === "MENUNGGU_2"
+      ? "rgba(228, 109, 76, 0.5)"
+      : alarmState === "MENUNGGU_1"
+      ? "rgba(228, 176, 76, 0.7)"
       : "#269684";
 
   return (

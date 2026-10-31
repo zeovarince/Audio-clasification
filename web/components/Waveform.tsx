@@ -69,6 +69,12 @@ export default function Waveform({ analyser, isActive, alarmState }: WaveformPro
     } else if (alarmState === "PERINGATAN_1") {
       ctx.shadowColor = "rgba(228, 109, 76, 0.35)";
       ctx.shadowBlur = 12;
+    } else if (alarmState === "MENUNGGU_2") {
+      ctx.shadowColor = "rgba(228, 109, 76, 0.25)";
+      ctx.shadowBlur = 10;
+    } else if (alarmState === "MENUNGGU_1") {
+      ctx.shadowColor = "rgba(228, 176, 76, 0.25)";
+      ctx.shadowBlur = 10;
     } else {
       ctx.shadowColor = "rgba(186, 207, 247, 0.2)";
       ctx.shadowBlur = 8;
