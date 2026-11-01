@@ -12,13 +12,30 @@
 
 **SilentGuard Lab** adalah sistem pemantauan kebisingan laboratorium cerdas berbasis web. Sistem mendengarkan audio secara terus-menerus melalui browser, mengekstrak fitur audio (MFCC, Spectral, RMS, ZCR, dll.), dan mengklasifikasikan keramaian memakai model machine learning terkalibrasi.
 
-> **Model yang dijalankan aplikasi:** Model 3.0 soft-voting ensemble, 107 fitur, threshold 0.50, akurasi holdout 97.50% (39/40) dan 5-fold CV 95.00% +/- 1.58 poin persentase.
+> **Model aktif di aplikasi:** Model 3.0. Tabel berikut membandingkan arsitektur, fitur, ambang probabilitas, dan hasil evaluasi yang tercatat untuk tiap generasi.
 
-| Versi Model | Arsitektur | Jumlah Fitur | Hasil evaluasi terbaru |
-|---|---|---:|---|
-| Model 2.0 (Baseline) | SVM RBF | 100 fitur | Arsip eksperimen |
-| **Model 3.0 (aktif)** | **Soft-Voting (SVM + LightGBM + ExtraTrees)** | **107 fitur** | **Holdout 97.50% (39/40); CV 95.00% +/- 1.58 pp** |
-| Model 5.0 (arsip) | SVC RBF | 110 fitur | Model eksperimen terdahulu |
+| Versi / status | Arsitektur dan konfigurasi utama | Fitur masukan -> fitur dipakai | Ambang label berisik | Holdout yang tercatat | Cross-validation yang tercatat |
+|---|---|---:|---:|---:|---:|
+| Model 2.0 (arsip) | SVM RBF; `StandardScaler` -> `SelectKBest` -> `SVC(C=3, gamma=0.05)` | 100 -> 60 (40 fitur; 40% direduksi) | Tidak ada cutoff probabilitas eksplisit; memakai `SVC.predict()` | 92.68% (38/41)* | 91.60% +/- 0.68 pp* (5 seed x 5-fold) |
+| **Model 3.0 (aktif)** | **Soft voting: SVM (50%) + LightGBM (30%) + ExtraTrees (20%)** | **107 -> SVM 70 (37 dibuang) / LightGBM 60 (47) / ExtraTrees 65 (42)** | **0.50** | **97.50% (39/40)** | **95.00% +/- 1.58 pp** (5-fold) |
+| Model 4.0 (arsip) | SVM RBF; `StandardScaler` -> `SelectKBest` -> `SVC(C=12, gamma=0.025)` | 112 -> 80 (32 fitur direduksi; 28.6%) | 0.35 | 97.56% (40/41) | 94.23% +/- 0.59 pp (5 seed x 5-fold) |
+| Model 5.0 (arsip) | SVM RBF; `StandardScaler` -> `SelectKBest` -> `SVC(C=3, gamma=0.025)` | 110 -> 80 (30 fitur direduksi; 27.3%) | 0.60 | 97.56% (40/41) | 94.03% +/- 1.37 pp (5 seed x 5-fold) |
+
+**Cara membaca tabel:** ambang probabilitas hanya mengubah cara probabilitas dikonversi menjadi label; ambang itu bukan akurasi model. Model 3.0 melakukan seleksi fitur terpisah pada setiap anggota ensemble, jadi angka 70/60/65 bukan satu jumlah fitur gabungan.
+
+**Catatan perbandingan:** ukuran holdout dan data berbeda antar generasi (Model 3.0: 40 file; Model 2.0/4.0/5.0: 41 file pada output yang dicatat). Metode CV Model 3.0 juga satu 5-fold, sementara model lain memakai lima seed x lima fold. Karena split dan prosedurnya tidak seragam, angka antarmodel bukan perbandingan head-to-head yang sepenuhnya setara.
+
+**Catatan Model 2.0:** tanda `*` berarti output notebook tersimpan tidak konsisten. Laporan klasifikasi mencatat holdout 92.68% (38/41), tetapi output cell CV mencetak holdout 91.18%; output pembagian lain menunjukkan 34 file test. Jalankan ulang notebook Model 2.0 sebelum memakai angka tersebut untuk klaim perbandingan.
+
+### Mengapa Model 3.0 dipilih?
+
+Model 3.0 dipakai sebagai model aktif karena menggabungkan tiga algoritma yang menangkap pola audio dengan cara berbeda, lalu menggabungkan probabilitasnya melalui **soft voting**. Pada konfigurasi model yang tersimpan, bobotnya adalah SVM 50%, LightGBM 30%, dan ExtraTrees 20%.
+
+- **SVM RBF** menjadi anggota dengan bobot terbesar. Kernel RBF dapat memisahkan pola yang hubungannya tidak linear; ini berguna ketika kombinasi fitur audio seperti MFCC, energi, dan fitur spektral tidak terpisah dengan batas lurus.
+- **LightGBM** membangun pohon boosting secara berurutan: pohon berikutnya memperbaiki kesalahan yang belum ditangani pohon sebelumnya. Pada artefak Model 3.0, LightGBM menggunakan **80 boosting rounds**. Pendekatan ini membantu menangkap interaksi dan ambang antarfitur.
+- **ExtraTrees** menggabungkan banyak pohon keputusan dengan pemilihan split yang dirandomisasi, sehingga memberi sudut pandang berbeda dari SVM dan boosting. Artefak Model 3.0 menggunakan **200 pohon keputusan** (`n_estimators=200`); voting dari banyak pohon membantu menstabilkan prediksi dan mengurangi ketergantungan pada satu pohon.
+
+Model 3.0 dipilih berdasarkan hasil evaluasi yang tercatat: **97.50% pada holdout (39 dari 40 file)** dan **95.00% +/- 1.58 poin persentase pada 5-fold CV**. Hasil tersebut menunjukkan performa yang baik pada evaluasi itu, tetapi bukan jaminan akurasi yang sama untuk semua rekaman. Perbandingan dengan versi lain juga perlu mempertimbangkan perbedaan split dan prosedur evaluasi yang dijelaskan di atas.
 
 Ketika kebisingan mencapai ambang batas:
 - **Deteksi model (50%)**: Model 3.0 memberi label berisik mulai probabilitas 0.50. Dashboard menampilkan deteksi ini terpisah dari alarm.
