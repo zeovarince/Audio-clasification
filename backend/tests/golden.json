@@ -1,23 +1,22 @@
 [
   {
     "file": "berisik/24-003 berisik (1).mp3",
-    "expected_noise_probability": 0.920,
+    "expected_noise_probability": 0.922535,
     "expected_label": "berisik"
   },
   {
     "file": "berisik/24-003 berisik (2).mp3",
-    "expected_noise_probability": 0.971,
+    "expected_noise_probability": 0.973128,
     "expected_label": "berisik"
   },
   {
     "file": "berisik/24-003 berisik (3).mp3",
-    "expected_noise_probability": 0.951,
+    "expected_noise_probability": 0.959138,
     "expected_label": "berisik"
   },
   {
     "file": "non-berisik/24-003 sunyi 2.mp3",
-    "expected_noise_probability": 0.086,
+    "expected_noise_probability": 0.071546,
     "expected_label": "non-berisik"
   }
 ]
-

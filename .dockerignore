@@ -1,6 +1,7 @@
 .git
 .github
 .pytest_cache
+.numba_cache
 **/__pycache__
 **/.next
 **/node_modules

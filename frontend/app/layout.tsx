@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SilentGuard Lab – Pemantau Kebisingan Lab",
   description:
-    "Sistem pemantau kebisingan lab berbasis browser dengan Model 3.0 Ensemble Soft-Voting (SVM, LightGBM, ExtraTrees), threshold 50%, dan akurasi holdout 95,12%.",
+    "Sistem pemantau kebisingan lab berbasis browser dengan Model 3.0 Ensemble Soft-Voting (SVM, LightGBM, ExtraTrees), threshold 50%, dan akurasi holdout 97,50% dan 5-fold CV 95,00%.",
   icons: {
     icon: "/logosilent.png",
     shortcut: "/logosilent.png",

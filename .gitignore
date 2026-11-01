@@ -223,5 +223,9 @@ __marimo__/
 # AI Agent Instructions
 CLAUDE.md
 
-docs/
+# Dataset and local-only assets (keep files on disk, exclude them from GitHub).
+/berisik/
+/non-berisik/
+/alrm/
+/docs/
 .numba_cache/

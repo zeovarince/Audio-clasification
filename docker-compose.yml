@@ -19,7 +19,7 @@ services:
         - CMD
         - python
         - -c
-        - "import json, urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)); assert d.get('status') == 'ok' and d.get('model_loaded') is True and d.get('model_version') == '3.0' and d.get('feature_count') == 107 and d.get('selected_feature_count') == 70 and d.get('decision_threshold') == 0.5, d"
+        - "import json, urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)); assert d.get('status') == 'ok' and d.get('model_loaded') is True and d.get('model_version') == '3.0' and d.get('model_artifact') == 'MODEL_KLASIFIKASIV3-0.joblib' and d.get('feature_count') == 107 and d.get('selected_features_by_estimator') == {'svm': 70, 'lgb': 60, 'et': 65} and d.get('decision_threshold') == 0.5, d"
       interval: 30s
       timeout: 10s
       retries: 3

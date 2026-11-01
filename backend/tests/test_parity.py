@@ -1,9 +1,15 @@
 """Uji paritas model dan endpoint FastAPI untuk SilentGuard Lab."""
 
 import json
+import hashlib
+import os
 from pathlib import Path
 import pytest
 import numpy as np
+
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+os.environ.setdefault("NUMBA_CACHE_DIR", str(ROOT_DIR / ".numba_cache"))
+
 import librosa
 from fastapi.testclient import TestClient
 
@@ -14,10 +20,10 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 import inference
+from features import extract_features
 from main import app
 
 client = TestClient(app)
-ROOT_DIR = backend_dir.parent
 
 
 def test_health_endpoint():
@@ -28,10 +34,35 @@ def test_health_endpoint():
     assert data["status"] == "ok"
     assert data["model_loaded"] is True
     assert data["model_version"] == "3.0"
+    assert data["model_artifact"] == "MODEL_KLASIFIKASIV3-0.joblib"
     assert data["feature_count"] == 107
     assert data["selected_feature_count"] == 70
+    assert data["selected_features_by_estimator"] == {"svm": 70, "lgb": 60, "et": 65}
     assert data["decision_threshold"] == 0.5
     assert data["sample_rate"] == 22050
+
+
+def test_model_artifacts_match_model3_source():
+    """Backend harus memuat salinan artefak Model 3.0 yang tepat."""
+    source_dir = ROOT_DIR / "model3.0"
+    for filename in ("MODEL_KLASIFIKASIV3-0.joblib", "MODEL_KLASIFIKASIV3-0.pkl"):
+        source = source_dir / filename
+        deployed = backend_dir / "models" / filename
+        assert source.is_file(), f"Artefak sumber tidak ditemukan: {source}"
+        assert deployed.is_file(), f"Artefak backend tidak ditemukan: {deployed}"
+        source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+        deployed_hash = hashlib.sha256(deployed.read_bytes()).hexdigest()
+        assert deployed_hash == source_hash, f"Artefak backend tidak sama dengan sumber: {filename}"
+
+
+def test_feature_extractor_matches_model3_schema():
+    """Ekstraktor backend harus menghasilkan semua fitur yang diminta model."""
+    if inference._model is None:
+        inference.load_model()
+    feature_names = inference._feature_columns
+    features = extract_features(np.zeros(22050 * 2, dtype=np.float32), sr=22050)
+    assert len(features) == 107
+    assert set(features) == set(feature_names)
 
 
 def test_golden_parity():

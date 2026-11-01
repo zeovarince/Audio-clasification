@@ -22,7 +22,8 @@ async def lifespan(app: FastAPI):
         inference.load_model()
         print("[SilentGuard Lab] Model klasifikasi berhasil dimuat ke memori.")
     except Exception as exc:
-        print(f"[SilentGuard Lab] Peringatan: Gagal memuat model saat startup: {exc}")
+        print(f"[SilentGuard Lab] Gagal memuat model saat startup: {exc}")
+        raise
     yield
 
 
@@ -74,8 +75,10 @@ def health():
         "status": "ok",
         "model_loaded": info["model_loaded"],
         "model_version": info["model_version"],
+        "model_artifact": info["model_artifact"],
         "feature_count": info["feature_count"],
         "selected_feature_count": info["selected_feature_count"],
+        "selected_features_by_estimator": info["selected_features_by_estimator"],
         "decision_threshold": info["decision_threshold"],
         "sklearn_version": info["sklearn_version"],
         "sample_rate": info["sample_rate"],

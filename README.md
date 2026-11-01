@@ -12,18 +12,18 @@
 
 **SilentGuard Lab** adalah sistem pemantauan kebisingan laboratorium cerdas berbasis web. Sistem mendengarkan audio secara terus-menerus melalui browser, mengekstrak fitur audio (MFCC, Spectral, RMS, ZCR, dll.), dan mengklasifikasikan keramaian memakai model machine learning terkalibrasi.
 
-> **Model yang dijalankan aplikasi:** Model 5.0 - SVC RBF + SelectKBest (80 dari 110 fitur), threshold 0.60, akurasi holdout 97.56% (40/41 file).
+> **Model yang dijalankan aplikasi:** Model 3.0 soft-voting ensemble, 107 fitur, threshold 0.50, akurasi holdout 97.50% (39/40) dan 5-fold CV 95.00% +/- 1.58 poin persentase.
 
-| Versi Model | Arsitektur | Jumlah Fitur | Akurasi Holdout (n=41) |
-|---|---|---|---|
-| Model 2.0 (Baseline) | Pipeline SVM RBF Tunggal | 100 fitur | 92.68% (38/41) |
-| Model 3.0 | Soft-Voting Ensemble (SVM + LightGBM + ExtraTrees) | 107 fitur | 95.12% (39/41) |
-| **Model 5.0 (aktif)** | **Pure SVM RBF** | **110 fitur** | **97.56% (40/41)** |
+| Versi Model | Arsitektur | Jumlah Fitur | Hasil evaluasi terbaru |
+|---|---|---:|---|
+| Model 2.0 (Baseline) | SVM RBF | 100 fitur | Arsip eksperimen |
+| **Model 3.0 (aktif)** | **Soft-Voting (SVM + LightGBM + ExtraTrees)** | **107 fitur** | **Holdout 97.50% (39/40); CV 95.00% +/- 1.58 pp** |
+| Model 5.0 (arsip) | SVC RBF | 110 fitur | Model eksperimen terdahulu |
 
 Ketika kebisingan mencapai ambang batas:
-- **Deteksi model (60%)**: Model memberi label berisik mulai probabilitas 0.60 sesuai threshold Model 5.0. Dashboard menampilkan deteksi ini terpisah dari alarm.
+- **Deteksi model (50%)**: Model 3.0 memberi label berisik mulai probabilitas 0.50. Dashboard menampilkan deteksi ini terpisah dari alarm.
 - **Ambang 1 (60% default)**: Memutar peringatan pertama setelah konfirmasi.
-- **Ambang 2 (80%)**: Memutar audio peringatan kedua dengan prioritas interupsi tinggi dan halo visual merah.
+- **Ambang 2 (75%)**: Memutar audio peringatan kedua dengan prioritas interupsi tinggi dan halo visual merah.
 
 ---
 
@@ -122,7 +122,7 @@ Audio-clasification/
 │   ├── output_fitur_berisik.csv
 │   └── output_fitur_segmen_berisik.csv
 │
-├── model3.0/                          # Model 3.0 Ensemble (107 fitur, 95.12%)
+├── model3.0/                          # Model 3.0 Ensemble (holdout 97.50%, CV 95.00%)
 │   ├── klasifikasi_berisik_audio.ipynb
 │   ├── model_klasifikasi_berisik.joblib
 │   ├── model_klasifikasi_berisik.pkl
@@ -137,7 +137,7 @@ Audio-clasification/
     |   |-- output_fitur_berisik.csv
     |   `-- README.md
     |
-    |-- model5.0/                     # Model 5.0 aktif (110 fitur, threshold 0.60)
+    |-- model5.0/                     # Model 5.0 arsip (110 fitur, threshold 0.60)
     |   |-- klasifikasi-audioV5.ipynb
     |   |-- modelaudiov5.joblib
     |   |-- modelaudiov5.pkl
@@ -170,15 +170,17 @@ Audio-clasification/
 - **Fitur:** 100 fitur audio (energi RMS-dB, MFCC, noise-floor, spektral, spectral contrast)
 - **Confusion Matrix:** `[[20, 0], [3, 18]]` — 3 file berisik salah diklasifikasi sebagai non-berisik
 
-### Model 3.0 — Ensemble Voting (aktif di dashboard)
+### Model 3.0 - Ensemble Voting (aktif di dashboard)
 
-Backend aktif menggunakan `backend/models/MODEL_KLASIFIKASIV3-0.joblib`, salinan byte-identik dari `model3.0/MODEL_KLASIFIKASIV3-0.joblib` dengan threshold 0.50. Docker menyalin artefak backend tersebut ke `/app/models/`.
+Backend memuat `backend/models/MODEL_KLASIFIKASIV3-0.joblib`, salinan artefak dari folder Model 3.0. Docker menyalin artefak bernama sama ke `/app/models/`; health check memverifikasi nama berkas, versi, jumlah fitur, dan threshold.
 
-- **Arsitektur:** Soft-Voting Ensemble (Tuned SVM 50% + LightGBM 30% + ExtraTrees 20%)
-- **Fitur:** 107 fitur (100 dasar spektral & MFCC + 7 rasio dinamis volume-invariant)
-- **Seleksi Fitur Internal:** SVM (k=70), LightGBM (k=60), ExtraTrees (k=65)
-- **Akurasi Holdout:** 95.12% (39 dari 41 file benar) dan 5-fold CV 95.51% ± 2.46%
-- **Threshold Keputusan:** 0.50 (50%)
+- **Arsitektur:** soft-voting ensemble (SVM 50% + LightGBM 30% + ExtraTrees 20%)
+- **Fitur:** 107 fitur audio
+- **Seleksi fitur internal:** SVM (k=70), LightGBM (k=60), ExtraTrees (k=65)
+- **Hasil notebook terbaru:** holdout 97.50% (39/40); Stratified 5-fold CV 95.00% +/- 1.58 poin persentase
+- **Threshold keputusan:** 0.50
+
+### Model 5.0 - Pure SVM RBF (arsip)
 
 ### Model 5.0 - Pure SVM RBF
 
@@ -280,10 +282,12 @@ Artefak sumber Model 3.0 berada di `model3.0/MODEL_KLASIFIKASIV3-0.joblib`; sali
 {
   "status": "ok",
   "model_loaded": true,
-  "model_version": "5.0",
-  "feature_count": 110,
-  "selected_feature_count": 80,
-  "decision_threshold": 0.6,
+  "model_version": "3.0",
+  "model_artifact": "MODEL_KLASIFIKASIV3-0.joblib",
+  "feature_count": 107,
+  "selected_feature_count": 70,
+  "selected_features_by_estimator": {"svm": 70, "lgb": 60, "et": 65},
+  "decision_threshold": 0.5,
   "sklearn_version": "1.6.1"
 }
 ```
@@ -333,9 +337,9 @@ Untuk deploy ke server lab, ikuti [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md). Deploy d
 ## 11. Keterbatasan
 
 - Satu responden menyumbang beberapa file. Evaluasi di atas adalah evaluasi *per file*; untuk mengukur generalisasi ke responden baru, dapat diuji dengan `StratifiedGroupKFold`.
-- Ukuran holdout test adalah 41 file (20 non-berisik, 21 berisik).
+- Ukuran holdout pada output terbaru adalah 40 file (20 non-berisik, 20 berisik).
 - Karakteristik derau suara latar bersifat subjektif; sebagian rekaman memiliki noise yang sangat halus.
-- Aplikasi menggunakan pipeline Model 5.0: 110 fitur masukan, SelectKBest(k=80), threshold 0.60, dan SVC RBF. Notebook terbaru mencatat akurasi holdout 97,56% (40/41) pada threshold ini; probabilitas mikrofon langsung dapat berbeda karena kondisi ruangan, mikrofon, posisi perangkat, dan gain.
+- Aplikasi menggunakan Model 3.0: 107 fitur masukan, soft-voting SVM + LightGBM + ExtraTrees, dan threshold 0.50. Output notebook terbaru mencatat holdout 97.50% (39/40) dan CV 95.00% +/- 1.58 poin persentase; probabilitas mikrofon langsung dapat berbeda karena kondisi ruangan, mikrofon, posisi perangkat, dan gain.
 
 ---
 

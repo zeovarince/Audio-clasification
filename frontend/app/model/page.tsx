@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const metrics = [
-  { label: "Akurasi holdout", value: "95,12%", note: "39 dari 41 rekaman (CV 95,51% ± 2,46%)" },
+  { label: "Akurasi holdout", value: "97,50%", note: "39 dari 40 rekaman; CV 95,00% +/- 1,58 poin" },
   { label: "Fitur model", value: "107", note: "100 spektral + 7 rasio dinamis volume-invariant" },
   { label: "Algoritma", value: "Soft-Voting Ensemble", note: "SVM (0.50) + LightGBM (0.30) + ExtraTrees (0.20)" },
 ];
@@ -26,10 +26,10 @@ export default function ModelPage() {
           <h1 className="gradient-ice-text">Model klasifikasi kebisingan</h1>
           <p>Model 3.0 menggunakan pipeline ensemble soft voting (Tuned SVM, LightGBM, dan Extra Trees) untuk mengubah 107 fitur audio menjadi probabilitas kebisingan secara real-time. Label berisik diberikan mulai threshold probabilitas 50%.</p>
         </div>
-        <div className="model-accuracy" aria-label="Akurasi holdout 95,12 persen">
-          <strong>95,12%</strong>
+        <div className="model-accuracy" aria-label="Akurasi holdout 97,50 persen">
+          <strong>97,50%</strong>
           <span>Akurasi holdout</span>
-          <small>39 benar · 2 salah dari 41 file</small>
+          <small>39 benar - 1 salah dari 40 file</small>
         </div>
       </section>
 
@@ -60,8 +60,8 @@ export default function ModelPage() {
       </section>
 
       <aside className="model-evaluation-note">
-        Angka 95,12% adalah hasil evaluasi holdout pada 41 rekaman (dan 95,51% pada 5-fold cross validation), bukan jaminan
-        akurasi untuk semua kondisi mikrofon. Hasil real-time dapat dipengaruhi
+        Hasil evaluasi terbaru adalah 97,50% pada holdout 40 file dan 95,00% +/- 1,58 poin pada 5-fold CV.
+        Angka ini bukan jaminan akurasi untuk semua kondisi mikrofon. Hasil real-time dapat dipengaruhi
         oleh ruang, perangkat, jarak sumber suara, dan pengaturan gain.
       </aside>
     </main>

@@ -22,10 +22,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend source and the sole active model artifact.
 COPY --chown=user backend/main.py backend/inference.py backend/features.py ./
 COPY --chown=user backend/models/MODEL_KLASIFIKASIV3-0.joblib ./models/MODEL_KLASIFIKASIV3-0.joblib
-COPY --chown=user backend/models/modelaudiov3.joblib ./models/modelaudiov3.joblib
+COPY --chown=user backend/models/MODEL_KLASIFIKASIV3-0.pkl ./models/MODEL_KLASIFIKASIV3-0.pkl
 
 ENV PORT=8000 \
-    MODEL_DIR=/app/models
+    MODEL_DIR=/app/models \
+    NUMBA_CACHE_DIR=/tmp/numba_cache
 EXPOSE 8000
 
 # Support dynamic port binding ($PORT)

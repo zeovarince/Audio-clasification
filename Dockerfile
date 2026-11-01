@@ -6,7 +6,8 @@ FROM python:3.10-slim AS api
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8000 \
-    MODEL_DIR=/app/models
+    MODEL_DIR=/app/models \
+    NUMBA_CACHE_DIR=/tmp/numba_cache
 
 WORKDIR /app
 
@@ -22,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=appuser:appuser backend/main.py backend/inference.py backend/features.py ./
 COPY --chown=appuser:appuser backend/models/MODEL_KLASIFIKASIV3-0.joblib ./models/MODEL_KLASIFIKASIV3-0.joblib
-COPY --chown=appuser:appuser backend/models/modelaudiov3.joblib ./models/modelaudiov3.joblib
+COPY --chown=appuser:appuser backend/models/MODEL_KLASIFIKASIV3-0.pkl ./models/MODEL_KLASIFIKASIV3-0.pkl
 
 USER appuser
 EXPOSE 8000

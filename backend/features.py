@@ -1,8 +1,18 @@
 """Ekstraksi 107 fitur audio yang digunakan oleh Model 3.0."""
 
+import os
+from pathlib import Path
 from typing import Dict
 import numpy as np
+
+os.environ.setdefault(
+    "NUMBA_CACHE_DIR",
+    str(Path(__file__).resolve().parent.parent / ".numba_cache"),
+)
+
 import librosa
+
+MODEL3_FEATURE_COUNT = 107
 
 
 def extract_features(y: np.ndarray, sr: int = 22050) -> Dict[str, float]:
@@ -78,6 +88,12 @@ def extract_features(y: np.ndarray, sr: int = 22050) -> Dict[str, float]:
     f["roll_cent_ratio"] = float(f["roll_mean"] / (f["cent_mean"] + 1e-5))
     f["flat_cent_prod"] = float(f["flat_mean"] * f["cent_mean"])
     f["snr_ratio_p95_p5"] = float(f["rmsdb_p95"] / (f["rmsdb_p5"] - 1e-5))
+
+    if len(f) != MODEL3_FEATURE_COUNT:
+        raise ValueError(
+            f"Ekstraksi Model 3.0 menghasilkan {len(f)} fitur; "
+            f"diharapkan {MODEL3_FEATURE_COUNT}."
+        )
 
     return f
 
