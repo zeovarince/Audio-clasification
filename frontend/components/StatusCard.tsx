@@ -8,6 +8,9 @@ interface StatusCardProps {
   calmRemainingSeconds?: number;
   confirmRemainingSeconds?: number;
   repeatRemainingSeconds?: number;
+  threshold1: number;
+  threshold2: number;
+  isModelDetectingNoise: boolean;
 }
 
 export default function StatusCard({
@@ -16,6 +19,9 @@ export default function StatusCard({
   calmRemainingSeconds,
   confirmRemainingSeconds,
   repeatRemainingSeconds,
+  threshold1,
+  threshold2,
+  isModelDetectingNoise,
 }: StatusCardProps) {
   const key = !isActive ? "idle" : alarmState;
   const isPulsing = key === "PERINGATAN_2";
@@ -33,7 +39,19 @@ export default function StatusCard({
     </svg>
   );
 
-  if (key === "AMAN") {
+  if (key === "AMAN" && isModelDetectingNoise) {
+    title = "Kebisingan Terdeteksi";
+    description = `Model mengklasifikasikan audio sebagai berisik. Alarm pertama berbunyi mulai ${threshold1}%.`;
+    colorClass = "status-warn";
+    bgColor = "rgba(228, 176, 76, 0.08)";
+    borderColor = "rgba(228, 176, 76, 0.3)";
+    iconNode = (
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--color-ember-glow)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    );
+  } else if (key === "AMAN") {
     title = "Lab Tenang";
     description = "Suasana lab terkendali dan kondusif.";
     colorClass = "status-safe";
@@ -46,7 +64,7 @@ export default function StatusCard({
     );
   } else if (key === "MENUNGGU_1") {
     title = "Mendeteksi Kebisingan...";
-    description = "Skor melewati 60%. Mengkonfirmasi apakah benar-benar ramai...";
+    description = `Skor melewati ${threshold1}%. Mengkonfirmasi apakah benar-benar ramai...`;
     colorClass = "status-warn";
     bgColor = "rgba(228, 176, 76, 0.08)";
     borderColor = "rgba(228, 176, 76, 0.3)";
@@ -58,7 +76,7 @@ export default function StatusCard({
     );
   } else if (key === "MENUNGGU_2") {
     title = "Mendeteksi Kebisingan Tinggi...";
-    description = "Skor melewati 80%. Mengkonfirmasi apakah benar-benar sangat ramai...";
+    description = `Skor melewati ${threshold2}%. Mengkonfirmasi apakah benar-benar sangat ramai...`;
     colorClass = "status-warn";
     bgColor = "rgba(228, 109, 76, 0.10)";
     borderColor = "rgba(228, 109, 76, 0.35)";
@@ -70,7 +88,7 @@ export default function StatusCard({
     );
   } else if (key === "PERINGATAN_1") {
     title = "Mulai Ramai";
-    description = "Ambang kebisingan 60% terlampaui. Alarm peringatan 1 aktif.";
+    description = `Ambang kebisingan ${threshold1}% terlampaui. Alarm peringatan 1 aktif.`;
     colorClass = "status-warn";
     bgColor = "rgba(228, 109, 76, 0.08)";
     borderColor = "rgba(228, 109, 76, 0.3)";
@@ -83,7 +101,7 @@ export default function StatusCard({
     );
   } else if (key === "PERINGATAN_2") {
     title = "Terlalu Berisik";
-    description = "Kebisingan mencapai ambang 80%! Mohon segera kurangi suara.";
+    description = `Kebisingan mencapai ambang ${threshold2}%! Mohon segera kurangi suara.`;
     colorClass = "status-alert";
     bgColor = "rgba(228, 109, 76, 0.16)";
     borderColor = "rgba(228, 109, 76, 0.5)";

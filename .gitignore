@@ -224,3 +224,4 @@ __marimo__/
 CLAUDE.md
 
 docs/
+.numba_cache/

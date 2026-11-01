@@ -158,6 +158,9 @@ export default function SettingsDrawer({
             value={threshold1}
             onChange={(e) => onThreshold1Change(Number(e.target.value))}
           />
+          <div style={{ fontSize: "11px", color: "var(--color-fog-veil)", marginTop: "6px" }}>
+            Model 5.0 mengklasifikasikan audio sebagai berisik mulai probabilitas 60%. Ambang Alarm 1 diatur terpisah dan default-nya juga 60%, dengan konfirmasi 5 detik.
+          </div>
         </div>
 
         {/* Ambang Alarm 2 */}
@@ -347,7 +350,7 @@ export default function SettingsDrawer({
               marginTop: "4px",
             }}
           >
-            Tingkatkan penguatan jika suara ruangan terasa terlalu pelan atau persentase susah naik.
+            Gain awal 2,0x. Naikkan bertahap bila skor terlalu rendah; gain menguatkan audio untuk model. Jika suara terdengar pecah, turunkan kembali.
           </div>
         </div>
 

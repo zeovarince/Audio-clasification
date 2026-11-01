@@ -20,7 +20,7 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=appuser:appuser backend/main.py backend/inference.py backend/features.py ./
-COPY --chown=appuser:appuser backend/models/ ./models/
+COPY --chown=appuser:appuser backend/models/modelaudiov5.joblib ./models/modelaudiov5.joblib
 
 USER appuser
 EXPOSE 8000

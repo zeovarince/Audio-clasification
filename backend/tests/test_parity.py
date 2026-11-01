@@ -27,8 +27,10 @@ def test_health_endpoint():
     data = response.json()
     assert data["status"] == "ok"
     assert data["model_loaded"] is True
-    assert data["model_version"] == "4.0"
-    assert data["feature_count"] == 112
+    assert data["model_version"] == "5.0"
+    assert data["feature_count"] == 110
+    assert data["selected_feature_count"] == 80
+    assert data["decision_threshold"] == 0.6
     assert data["sample_rate"] == 22050
 
 
@@ -46,10 +48,10 @@ def test_golden_parity():
         if not file_path.exists():
             pytest.skip(f"File audio {file_path} tidak ditemukan di workspace.")
 
-        y, _ = librosa.load(str(file_path), sr=sr, mono=True)
-        # Ambil 5 detik pertama
-        dur_samples = int(case.get("duration_sec", 5.0) * sr)
-        clip = y[:dur_samples]
+        duration_sec = case.get("duration_sec")
+        y, _ = librosa.load(str(file_path), sr=sr, mono=True, duration=duration_sec)
+        # Jika duration_sec tidak ditentukan, cocokkan dengan prediksi seluruh file.
+        clip = y if duration_sec is None else y[:int(duration_sec * sr)]
 
         noise_prob, label = inference.predict_noise_probability(clip, sample_rate=sr)
 

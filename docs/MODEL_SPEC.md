@@ -1,19 +1,21 @@
 # Spesifikasi Model SilentGuard Lab
 
-Dokumen ini menjelaskan kontrak inferensi yang digunakan backend dan frontend.
+Dokumen ini menjelaskan kontrak inferensi backend yang aktif.
 
-## 1. Artefak model yang dijalankan
+## 1. Artefak model
 
 | Item | Nilai |
 |---|---|
-| Versi | Model 4.0 |
-| File default | `backend/models/model_klasifikasi_berisik.joblib` |
-| Fitur | 112, sesuai urutan `bundle["features"]` |
-| Pipeline | `StandardScaler` → `SelectKBest(f_classif, k=80)` → `SVC(RBF, C=12.0, gamma=0.025, probability=True)` |
-| Sample rate bundle | 22050 Hz |
+| Versi aktif | Model 5.0 |
+| Artefak training | `model5.0/modelaudiov5.joblib` |
+| Artefak yang dimuat backend | `backend/models/modelaudiov5.joblib` (salinan identik) |
+| Fitur input | 110 kolom sesuai urutan `bundle["features"]` |
+| Pipeline | `StandardScaler` -> `SelectKBest(f_classif, k=80)` -> `SVC(RBF, C=3, gamma=0.025, probability=True)` |
+| Threshold keputusan | 0,50 (`bundle["threshold"]`) |
+| Sample rate | 22050 Hz |
 | Runtime scikit-learn | 1.6.1 |
 
-`backend/inference.py` memilih artefak di `backend/models/` secara default dan menolak bundle yang tidak memiliki 112 fitur. Set `MODEL_DIR` hanya jika ingin memilih direktori model secara eksplisit.
+Backend mencari hanya `modelaudiov5.joblib` di `MODEL_DIR`. Secara default, backend lokal memakai `backend/models/`; Docker menyalin salinan backend itu ke `/app/models/`. Artefak training resmi tetap berada di `model5.0/`. Kedua file JOBLIB harus identik; backend tidak memuat artefak `.pkl`.
 
 File joblib/pickle dapat menjalankan kode saat dimuat. Gunakan hanya artefak dari repository tepercaya.
 
@@ -25,20 +27,16 @@ File joblib/pickle dapat menjalankan kode saat dimuat. Gunakan hanya artefak dar
 | Sample rate | 22050 Hz |
 | Durasi window frontend | 5 detik (110250 sampel) |
 | Jeda kirim frontend | 1 detik |
-| Bentuk input API | PCM Int16 little-endian |
-| Konversi backend | `int16.astype(float32) / 32768.0` |
+| Bentuk input API | PCM Float32 little-endian; Int16 tetap diterima untuk klien lama |
+| Pemrosesan backend | Float32 dipertahankan lalu dibatasi ke rentang `[-1, 1]` |
 
-Frontend meminta `AudioContext` pada 22050 Hz, merata-ratakan kanal ke mono, dan mengirim `X-Sample-Rate: 22050`. Backend menolak sample rate yang tidak cocok dengan sample rate model.
+Frontend mengirim Float32 mono dengan `X-Audio-Format: float32le` dan `X-Sample-Rate: 22050`. Backend menolak sample rate yang tidak cocok dengan model.
 
 ## 3. Fitur inferensi
 
-`backend/features.py` mengikuti fungsi ekstraksi di `model4.0/klasifikasi-audioV4.ipynb`:
+`backend/features.py` menghasilkan tepat 110 nilai yang digunakan Model 5.0. Backend menyusun vektor dalam urutan `bundle["features"]`, bukan urutan kamus.
 
-- 100 fitur dasar RMS-dB, statistik spektral, MFCC, mel noise-floor, dan spectral contrast.
-- 7 fitur rekayasa Model 3.0: `dyn_ratio`, `snr_dyn_ratio`, `hf_energy_ratio`, `cent_bw_ratio`, `roll_cent_ratio`, `flat_cent_prod`, `snr_ratio_p95_p5`.
-- 5 fitur transien Model 4.0: `peak_to_p50`, `crest_factor`, `std_sum`, `vocal_ratio`, `hf_spectral`.
-
-Backend menyusun matriks dengan urutan fitur yang tersimpan di bundle, bukan urutan kamus lokal.
+Rumus ekstraksi harus tetap cocok dengan training Model 5.0. Nama fitur yang sama dengan rumus berbeda dapat mengubah probabilitas.
 
 ## 4. Output API
 
@@ -52,17 +50,17 @@ Backend menyusun matriks dengan urutan fitur yang tersimpan di bundle, bukan uru
 }
 ```
 
-`noise_probability` adalah probabilitas kelas berisik pada rentang 0–1. Frontend mengubahnya menjadi persentase sebelum smoothing dan membandingkannya dengan ambang 60% dan 80%.
+`noise_probability` adalah probabilitas kelas berisik pada rentang 0-1, bukan ukuran desibel langsung. Label backend memakai threshold Model 5.0 sebesar 0,50. Alarm dashboard tetap memakai ambang terpisah: 60% untuk alarm pertama dan 80% untuk alarm kedua.
 
-`GET /health` melaporkan `model_loaded`, `model_version`, `feature_count`, `sample_rate`, dan `sklearn_version`. Deploy dianggap sehat hanya jika Model 4.0 berhasil dimuat dan warm-up inferensinya berhasil.
+`GET /health` melaporkan versi model, jumlah fitur, threshold, sample rate, dan versi scikit-learn. Deploy dianggap sehat hanya jika Model 5.0 berhasil dimuat dan warm-up inferensinya berhasil.
 
 ## 5. Akurasi dan batas penggunaan
 
-Model 4.0 mencapai akurasi holdout **97.56% (40 dari 41 file)** pada evaluasi yang tercatat di `model4.0/README.md`. Angka ini mengukur holdout dataset tersebut; akurasi pada mikrofon langsung dapat berbeda karena karakteristik ruang, perangkat, posisi mikrofon, dan gain.
+Model 5.0 memperoleh akurasi holdout **97,56% (40 dari 41 file)** pada split evaluasi yang tersimpan di notebook Model 5.0. Angka ini khusus untuk data holdout tersebut; performa mikrofon langsung dapat berbeda karena ruang, perangkat, posisi mikrofon, dan gain.
 
 ## 6. Pemeriksaan paritas
 
-`backend/tests/golden.json` berasal dari sebelum artefak backend diperbarui ke Model 4.0; nilainya belum membuktikan paritas Model 4.0. Regenerasi reference tersebut dengan Model 4.0 dan scikit-learn 1.6.1 sebelum menganggap uji golden lulus. Jalankan pemeriksaan dari root repository dengan:
+`backend/tests/golden.json` menyimpan contoh probabilitas dan label Model 5.0. Jalankan pemeriksaan dari root repository dengan:
 
 ```bash
 python -m pytest backend/tests/test_parity.py

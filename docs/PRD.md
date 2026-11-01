@@ -4,7 +4,7 @@ Versi 0.1 | Status: Draft | Platform: Web app (Next.js + FastAPI)
 
 ## 1. Ringkasan
 
-SilentGuard Lab adalah sistem pemantau kebisingan berbasis web untuk laboratorium. Sistem menangkap suara dari mikrofon, mengklasifikasikannya sebagai berisik atau tenang memakai Model 4.0 (akurasi holdout 97.56%), menampilkan gelombang suara dan persentase keramaian secara real-time, lalu membunyikan alarm peringatan ketika keramaian melewati ambang tertentu.
+SilentGuard Lab adalah sistem pemantau kebisingan berbasis web untuk laboratorium. Sistem menangkap suara dari mikrofon, mengklasifikasikannya sebagai berisik atau tenang memakai Model 5.0 (SVC RBF + SelectKBest 80, akurasi holdout 97,56%), menampilkan gelombang suara dan spektrum akustik secara real-time, lalu membunyikan alarm peringatan ketika keramaian melewati ambang tertentu.
 
 ## 2. Latar belakang dan masalah
 
@@ -14,7 +14,7 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 
 1. Mendeteksi keramaian di lab secara real-time memakai model yang sudah ada.
 2. Menampilkan kondisi suara secara jelas: waveform dan persentase keramaian.
-3. Membunyikan alarm bertahap di ambang 60% dan 80% sesuai aturan di `ALARM_LOGIC.md`.
+3. Menampilkan deteksi model pada ambang keputusan 35% dan membunyikan alarm bertahap pada ambang 60% dan 80% sesuai aturan di `ALARM_LOGIC.md`.
 4. Bisa diakses lewat browser dan di-deploy ke internet.
 
 ## 4. Non-tujuan (versi ini)
@@ -40,12 +40,12 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 | FR-02 | Menampilkan waveform suara real-time dari mikrofon | Must |
 | FR-03 | Menampilkan persentase keramaian (0 sampai 100) yang diperbarui terus-menerus dan sudah dihaluskan | Must |
 | FR-04 | Audio dipotong per jendela waktu dan dikirim ke backend; backend mengembalikan probabilitas berisik | Must |
-| FR-05 | Alarm 1 berbunyi saat keramaian mencapai 60% | Must |
+| FR-05 | Alarm 1 berbunyi saat keramaian mencapai ambang 60% default | Must |
 | FR-06 | Alarm 2 berbunyi saat keramaian bertahan lalu naik mencapai 80% | Must |
-| FR-07 | Setelah keramaian turun lalu naik lagi, alarm 60% berbunyi lagi (aturan lengkap di `ALARM_LOGIC.md`) | Must |
+| FR-07 | Setelah keramaian turun lalu naik lagi, alarm 1 berbunyi lagi (aturan lengkap di `ALARM_LOGIC.md`) | Must |
 | FR-08 | Indikator status: Aman, Peringatan 1, Peringatan 2 | Must |
 | FR-09 | Riwayat alarm selama sesi (waktu, jenis alarm, nilai keramaian) | Should |
-| FR-10 | Ambang 60 dan 80 dapat diubah lewat konfigurasi | Should |
+| FR-10 | Ambang alarm 60 dan 80 dapat diubah lewat konfigurasi | Should |
 | FR-11 | Tombol "Tes alarm" untuk memastikan suara alarm dan izin audio browser aktif | Should |
 | FR-12 | Pesan error yang jelas: izin mikrofon ditolak, backend tidak terjangkau, model gagal dimuat | Must |
 | FR-13 | Tampilan responsif untuk laptop dan layar proyektor; mobile cukup terbaca | Could |
@@ -73,8 +73,8 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 
 | Metrik | Target |
 |---|---|
-| Akurasi model offline | 97.56% pada holdout test 41 file Model 4.0 |
-| Alarm 60% berbunyi pada skenario keramaian uji | 100% dari skenario di `TASKS.md` |
+| Akurasi model offline | 97.56% pada holdout test 41 file Model 5.0 |
+| Alarm tingkat 1 berbunyi pada skenario keramaian uji | 100% dari skenario di `TASKS.md` |
 | Alarm palsu saat lab tenang | ditetapkan setelah uji lapangan (usulan awal: tidak ada alarm dalam 10 menit lab tenang) |
 | Latensi suara ke persentase | di bawah 2 detik |
 

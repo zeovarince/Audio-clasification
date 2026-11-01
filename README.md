@@ -12,14 +12,17 @@
 
 **SilentGuard Lab** adalah sistem pemantauan kebisingan laboratorium cerdas berbasis web. Sistem mendengarkan audio secara terus-menerus melalui browser, mengekstrak fitur audio (MFCC, Spectral, RMS, ZCR, dll.), dan mengklasifikasikan keramaian memakai model machine learning terkalibrasi.
 
+> **Model yang dijalankan aplikasi:** Model 5.0 - SVC RBF + SelectKBest (80 dari 110 fitur), threshold 0.60, akurasi holdout 97.56% (40/41 file).
+
 | Versi Model | Arsitektur | Jumlah Fitur | Akurasi Holdout (n=41) |
 |---|---|---|---|
 | Model 2.0 (Baseline) | Pipeline SVM RBF Tunggal | 100 fitur | 92.68% (38/41) |
 | Model 3.0 | Soft-Voting Ensemble (SVM + LightGBM + ExtraTrees) | 107 fitur | 95.12% (39/41) |
-| **Model 4.0 (Terbaru)** | **Pure SVM RBF Teroptimasi** | **112 fitur** | **97.56% (40/41)** |
+| **Model 5.0 (aktif)** | **Pure SVM RBF** | **110 fitur** | **97.56% (40/41)** |
 
 Ketika kebisingan mencapai ambang batas:
-- **Ambang 1 (60%)**: Memutar audio peringatan pertama (*"Tolong jangan berisik di lab"*).
+- **Deteksi model (60%)**: Model memberi label berisik mulai probabilitas 0.60 sesuai threshold Model 5.0. Dashboard menampilkan deteksi ini terpisah dari alarm.
+- **Ambang 1 (60% default)**: Memutar peringatan pertama setelah konfirmasi.
 - **Ambang 2 (80%)**: Memutar audio peringatan kedua dengan prioritas interupsi tinggi dan halo visual merah.
 
 ---
@@ -38,7 +41,7 @@ Ketika kebisingan mencapai ambang batas:
 |        +--> AudioWorklet -> buffer PCM (mono, 22050 Hz)                  |
 |                                |                                         |
 |                                v  tiap 1.0s, kirim 5.0s audio           |
-|                      POST /predict (Int16 PCM)                           |
+|                    POST /predict (Float32 PCM)                           |
 |                                |                                         |
 |   skor keramaian <-- rata-rata <-- noise_probability                     |
 |        |                                                                 |
@@ -97,13 +100,11 @@ Audio-clasification/
 ├── backend/                           # Layanan Backend FastAPI
 │   ├── main.py                        # Server FastAPI & CORS middleware
 │   ├── inference.py                   # Pipeline inferensi SVC (load model saat startup)
-│   ├── features.py                    # Ekstraksi 112 fitur Model 4.0
+│   ├── features.py                    # Ekstraksi fitur Model 5.0 (110 fitur dipakai model)
+│   ├── models/                         # Salinan aktif model5.0/modelaudiov5.joblib
 │   ├── requirements.txt               # Dependensi Python
 │   ├── Dockerfile                     # Container production-ready
 │   ├── vercel.json                    # Konfigurasi legacy; deploy aktif memakai Docker Compose
-│   ├── models/                        # Salinan model untuk deployment
-│   │   ├── model_klasifikasi_berisik.joblib
-│   │   └── model_klasifikasi_berisik.pkl
 │   └── tests/                         # Pengujian paritas
 │       ├── test_parity.py
 │       └── golden.json
@@ -129,14 +130,19 @@ Audio-clasification/
 │   ├── requirements.txt
 │   └── README.md
 │
-├── model4.0/                          # Model 4.0 Pure SVM Teroptimasi (112 fitur, 97.56%)
-│   ├── klasifikasi-audioV4.ipynb      # Notebook lengkap (76 cell, penjelasan CRISP-DM)
-│   ├── model_klasifikasi_berisik.joblib
-│   ├── model_klasifikasi_berisik.pkl
-│   ├── output_fitur_berisik.csv
-│   ├── output_fitur_segmen_berisik.csv
-│   └── README.md
-│
+    |-- model4.0/                     # Model 4.0 arsip (112 fitur, 97.56%)
+    |   |-- klasifikasi-audioV4.ipynb
+    |   |-- model_klasifikasiV4.joblib
+    |   |-- model_klasifikasiV4.pkl
+    |   |-- output_fitur_berisik.csv
+    |   `-- README.md
+    |
+    |-- model5.0/                     # Model 5.0 aktif (110 fitur, threshold 0.60)
+    |   |-- klasifikasi-audioV5.ipynb
+    |   |-- modelaudiov5.joblib
+    |   |-- modelaudiov5.pkl
+    |   `-- output_fitur_berisik.csv
+    |
 ├── procesingdata/                     # Eksperimen preprocessing (YAMNet, optimasi)
 │   ├── klasifikasi.ipynb
 │   ├── optimasi_train_validation.py
@@ -170,16 +176,18 @@ Audio-clasification/
 - **Fitur:** 107 fitur (100 dasar + 7 rasio dinamis volume-invariant)
 - **Peningkatan:** False negative berkurang dari 3 → 2 file, varians CV turun dari ±6.44% → ±2.46%
 
-### Model 4.0 — Pure SVM Teroptimasi (Akurasi 97.56%) 🚀
+### Model 5.0 - Pure SVM RBF (aktif di dashboard)
 
-- **Arsitektur:** `StandardScaler` → `SelectKBest(f_classif, k=80)` → `SVC(C=12.0, gamma=0.025, RBF)`
-- **Fitur:** 112 fitur (107 sebelumnya + 5 fitur dinamika transien Generasi 4)
+Backend aktif menggunakan `backend/models/modelaudiov5.joblib`, salinan byte-identik dari `model5.0/modelaudiov5.joblib` dengan threshold 0.60. Docker menyalin artefak backend tersebut ke `/app/models/`.
+
+- **Arsitektur:** `StandardScaler` → `SelectKBest(f_classif, k=80)` → `SVC(C=3, gamma=0.025, RBF)`
+- **Fitur:** 110 fitur input, disusun sesuai bundle Model 5.0; SelectKBest memilih 80 fitur saat inferensi.
 - **5 Fitur Baru Generasi 4:**
   1. `peak_to_p50` — Selisih energi dB antara persentil ke-95 dan median
-  2. `crest_factor` — Rasio amplitudo puncak terhadap RMS sinyal
-  3. `std_sum` — Gabungan variabilitas temporal RMS-dB dan spectral centroid
-  4. `vocal_ratio` — Proporsi energi pada pita frekuensi vokal manusia (300–3400 Hz)
-  5. `hf_spectral` — Proporsi energi frekuensi tinggi di atas 4000 Hz
+  2. `crest_factor` — Rentang RMS-dB persentil ke-95 dan ke-5
+  3. `std_sum` — Jumlah standar deviasi tiga MFCC pertama
+  4. `vocal_ratio` — Rasio spectral contrast pita vokal
+  5. `hf_spectral` — Selisih spectral contrast frekuensi tinggi dan rendah
 - **Confusion Matrix:** `[[20, 0], [1, 20]]` — hanya 1 file salah dari 41 file uji
 - **Precision (berisik):** 1.000 (0 false alarm pada ruangan tenang)
 - **Recall (berisik):** 0.952 (hanya 1 file berisik yang terlewat)
@@ -238,9 +246,9 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 **Backend** (variabel lingkungan):
 ```env
 ALLOWED_ORIGINS=http://localhost:3000
-MODEL_DIR=./models
+MODEL_DIR=./backend/models
 ```
-Folder `backend/models/` berisi artefak Model 4.0. Jika `MODEL_DIR` tidak disetel, backend otomatis memakai folder itu.
+Artefak sumber Model 5.0 berada di `model5.0/modelaudiov5.joblib`; salinan aktif backend berada di `backend/models/modelaudiov5.joblib`. Keduanya harus tetap identik. Docker menyalin artefak backend tersebut ke `/app/models/`.
 
 ---
 
@@ -251,8 +259,9 @@ Folder `backend/models/` berisi artefak Model 4.0. Jika `MODEL_DIR` tidak disete
 | Parameter | Keterangan |
 |---|---|
 | **Content-Type** | `application/octet-stream` |
+| **X-Audio-Format** | `float32le` |
 | **X-Sample-Rate** | `22050` |
-| **Body** | Audio mono Int16 little-endian PCM (5.0 detik = 220.500 bytes) |
+| **Body** | Audio mono Float32 little-endian PCM (5.0 detik = 441.000 bytes) |
 
 **Response 200:**
 ```json
@@ -269,8 +278,10 @@ Folder `backend/models/` berisi artefak Model 4.0. Jika `MODEL_DIR` tidak disete
 {
   "status": "ok",
   "model_loaded": true,
-  "model_version": "4.0",
-  "feature_count": 112,
+  "model_version": "5.0",
+  "feature_count": 110,
+  "selected_feature_count": 80,
+  "decision_threshold": 0.6,
   "sklearn_version": "1.6.1"
 }
 ```
@@ -322,7 +333,7 @@ Untuk deploy ke server lab, ikuti [DEPLOY_DOCKER.md](DEPLOY_DOCKER.md). Deploy d
 - Satu responden menyumbang beberapa file. Evaluasi di atas adalah evaluasi *per file*; untuk mengukur generalisasi ke responden baru, dapat diuji dengan `StratifiedGroupKFold`.
 - Ukuran holdout test adalah 41 file (20 non-berisik, 21 berisik).
 - Karakteristik derau suara latar bersifat subjektif; sebagian rekaman memiliki noise yang sangat halus.
-- File model dan `backend/features.py` menggunakan 112 fitur Model 4.0, termasuk rekayasa fitur Gen-3 dan Gen-4. Akurasi 97.56% adalah hasil holdout test 41 file; hasil inferensi mikrofon langsung dapat berbeda karena kondisi ruangan, mikrofon, dan gain perangkat.
+- Aplikasi menggunakan pipeline Model 5.0: 110 fitur masukan, SelectKBest(k=80), threshold 0.60, dan SVC RBF. Notebook terbaru mencatat akurasi holdout 97,56% (40/41) pada threshold ini; probabilitas mikrofon langsung dapat berbeda karena kondisi ruangan, mikrofon, posisi perangkat, dan gain.
 
 ---
 

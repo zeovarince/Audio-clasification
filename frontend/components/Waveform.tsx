@@ -7,9 +7,10 @@ interface WaveformProps {
   analyser: AnalyserNode | null;
   isActive: boolean;
   alarmState: AlarmState;
+  displayGain: number;
 }
 
-export default function Waveform({ analyser, isActive, alarmState }: WaveformProps) {
+export default function Waveform({ analyser, isActive, alarmState, displayGain }: WaveformProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
 
@@ -87,11 +88,13 @@ export default function Waveform({ analyser, isActive, alarmState }: WaveformPro
     ctx.lineCap = "round";
 
     const sliceWidth = w / bufferLength;
+    const visualScale = Math.min(5, Math.max(1, displayGain * 1.75));
     let x = 0;
 
     for (let i = 0; i < bufferLength; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = (v * h) / 2;
+      const signal = (dataArray[i] - 128) / 128;
+      const visibleSignal = Math.max(-1, Math.min(1, signal * visualScale));
+      const y = centerY - visibleSignal * (h * 0.44);
 
       if (i === 0) {
         ctx.moveTo(x, y);
@@ -105,7 +108,7 @@ export default function Waveform({ analyser, isActive, alarmState }: WaveformPro
     ctx.shadowBlur = 0;
 
     animFrameRef.current = requestAnimationFrame(draw);
-  }, [analyser, isActive, alarmState]);
+  }, [analyser, isActive, alarmState, displayGain]);
 
   useEffect(() => {
     animFrameRef.current = requestAnimationFrame(draw);
@@ -115,12 +118,12 @@ export default function Waveform({ analyser, isActive, alarmState }: WaveformPro
   }, [draw]);
 
   return (
-    <div className="glass-card" style={{ padding: 0, overflow: "hidden" }}>
+    <div className="glass-card" style={{ padding: 0, overflow: "hidden", position: "relative" }}>
       <canvas
         ref={canvasRef}
         style={{
           width: "100%",
-          height: "200px",
+          height: "clamp(230px, 23vw, 280px)",
           display: "block",
         }}
         aria-label="Visualisasi gelombang suara"

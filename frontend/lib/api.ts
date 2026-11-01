@@ -28,16 +28,17 @@ export interface HealthResponse {
   model_loaded: boolean;
   model_version?: string | null;
   feature_count?: number;
+  decision_threshold?: number;
   sklearn_version: string;
   sample_rate?: number;
   classes?: number[];
 }
 
 /**
- * Mengirim potongan audio PCM Int16 ke backend untuk klasifikasi.
+ * Mengirim potongan audio PCM Float32 little-endian ke backend.
  */
 export async function predict(
-  int16Buffer: ArrayBuffer
+  audioBuffer: ArrayBuffer
 ): Promise<PredictResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
@@ -47,9 +48,10 @@ export async function predict(
       method: "POST",
       headers: {
         "Content-Type": "application/octet-stream",
+        "X-Audio-Format": "float32le",
         "X-Sample-Rate": String(SAMPLE_RATE),
       },
-      body: int16Buffer,
+      body: audioBuffer,
       signal: controller.signal,
     });
 

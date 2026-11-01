@@ -7,6 +7,7 @@ interface NoiseMeterProps {
   threshold1: number;
   threshold2: number;
   alarmState: AlarmState;
+  isModelDetectingNoise: boolean;
 }
 
 export default function NoiseMeter({
@@ -14,6 +15,7 @@ export default function NoiseMeter({
   threshold1,
   threshold2,
   alarmState,
+  isModelDetectingNoise,
 }: NoiseMeterProps) {
   const statusColor =
     alarmState === "PERINGATAN_2"
@@ -24,6 +26,8 @@ export default function NoiseMeter({
       ? "rgba(228, 109, 76, 0.6)"
       : alarmState === "MENUNGGU_1"
       ? "rgba(228, 176, 76, 0.7)"
+      : isModelDetectingNoise
+      ? "var(--color-status-warn)"
       : "var(--color-status-safe)";
 
   const scoreColor =
@@ -35,12 +39,17 @@ export default function NoiseMeter({
       ? "rgba(228, 109, 76, 0.5)"
       : alarmState === "MENUNGGU_1"
       ? "rgba(228, 176, 76, 0.7)"
+      : isModelDetectingNoise
+      ? "rgba(228, 176, 76, 0.9)"
       : "#269684";
 
   return (
     <div className="glass-card" style={{ flex: 1 }}>
       <div className="eyebrow" style={{ marginBottom: "16px" }}>
         Keramaian
+      </div>
+      <div style={{ color: "var(--color-fog-veil)", fontSize: "12px", textAlign: "center", marginTop: "-8px", marginBottom: "12px" }}>
+        Skor prediksi model
       </div>
 
       {/* Angka besar */}

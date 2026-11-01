@@ -5,9 +5,12 @@ import type { AlarmState } from "@/lib/alarm-machine";
 interface StatusPillProps {
   alarmState: AlarmState;
   isActive: boolean;
+  threshold1: number;
+  threshold2: number;
+  isModelDetectingNoise: boolean;
 }
 
-export default function StatusPill({ alarmState, isActive }: StatusPillProps) {
+export default function StatusPill({ alarmState, isActive, threshold1, threshold2, isModelDetectingNoise }: StatusPillProps) {
   const key = !isActive ? "idle" : alarmState;
 
   let label = "Live • Lab Tenang";
@@ -31,8 +34,19 @@ export default function StatusPill({ alarmState, isActive }: StatusPillProps) {
         <polyline points="12 6 12 12 16 14" />
       </svg>
     );
+  } else if (key === "AMAN" && isModelDetectingNoise) {
+    label = `Terdeteksi Ramai · Alarm ${threshold1}%`;
+    color = "var(--color-ember-glow)";
+    bg = "rgba(228, 176, 76, 0.12)";
+    dotColor = "var(--color-ember-glow)";
+    icon = (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    );
   } else if (key === "MENUNGGU_1") {
-    label = "Mengkonfirmasi (60%)...";
+    label = `Mengkonfirmasi (${threshold1}%)...`;
     color = "var(--color-ember-glow)";
     bg = "rgba(228, 176, 76, 0.12)";
     dotColor = "var(--color-ember-glow)";
@@ -43,7 +57,7 @@ export default function StatusPill({ alarmState, isActive }: StatusPillProps) {
       </svg>
     );
   } else if (key === "MENUNGGU_2") {
-    label = "Mengkonfirmasi (80%)...";
+    label = `Mengkonfirmasi (${threshold2}%)...`;
     color = "#ff8260";
     bg = "rgba(228, 109, 76, 0.15)";
     dotColor = "var(--color-status-alert)";
@@ -54,7 +68,7 @@ export default function StatusPill({ alarmState, isActive }: StatusPillProps) {
       </svg>
     );
   } else if (key === "PERINGATAN_1") {
-    label = "Mulai Ramai (60%)";
+    label = `Mulai Ramai (${threshold1}%)`;
     color = "var(--color-ember-glow)";
     bg = "rgba(228, 109, 76, 0.12)";
     dotColor = "var(--color-ember-glow)";
@@ -66,7 +80,7 @@ export default function StatusPill({ alarmState, isActive }: StatusPillProps) {
       </svg>
     );
   } else if (key === "PERINGATAN_2") {
-    label = "Terlalu Berisik (80%)";
+    label = `Terlalu Berisik (${threshold2}%)`;
     color = "#ff8260";
     bg = "rgba(228, 109, 76, 0.2)";
     dotColor = "var(--color-status-alert)";
@@ -97,7 +111,7 @@ export default function StatusPill({ alarmState, isActive }: StatusPillProps) {
       <span style={{ display: "flex", alignItems: "center" }}>{icon}</span>
       <span style={{ fontWeight: 500, fontSize: "13px" }}>{label}</span>
       <span
-        className={key === "AMAN" ? "live-pulse" : "dot-pulse"}
+        className={key === "AMAN" && !isModelDetectingNoise ? "live-pulse" : "dot-pulse"}
         style={{
           background: dotColor,
           width: "7px",

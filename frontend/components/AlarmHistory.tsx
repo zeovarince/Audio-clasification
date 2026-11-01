@@ -2,7 +2,8 @@
 
 export interface AlarmHistoryEntry {
   time: string; // HH:MM:SS
-  type: "60%" | "80%";
+  type: "alarm1" | "alarm2";
+  threshold: number;
   score: number;
 }
 
@@ -69,11 +70,11 @@ export default function AlarmHistory({ entries }: AlarmHistoryProps) {
                 className="badge"
                 style={{
                   background:
-                    entry.type === "80%"
+                    entry.type === "alarm2"
                       ? "rgba(228, 109, 76, 0.15)"
                       : "rgba(228, 109, 76, 0.08)",
                   color:
-                    entry.type === "80%"
+                    entry.type === "alarm2"
                       ? "var(--color-status-alert)"
                       : "var(--color-status-warn)",
                   fontSize: "11px",
@@ -81,7 +82,7 @@ export default function AlarmHistory({ entries }: AlarmHistoryProps) {
                   flexShrink: 0,
                 }}
               >
-                Alarm {entry.type}
+                Alarm {entry.type === "alarm1" ? "1" : "2"} ({entry.threshold}%)
               </span>
 
               {/* Skor */}

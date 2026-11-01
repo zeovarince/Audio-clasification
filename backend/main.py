@@ -75,6 +75,8 @@ def health():
         "model_loaded": info["model_loaded"],
         "model_version": info["model_version"],
         "feature_count": info["feature_count"],
+        "selected_feature_count": info["selected_feature_count"],
+        "decision_threshold": info["decision_threshold"],
         "sklearn_version": info["sklearn_version"],
         "sample_rate": info["sample_rate"],
         "classes": info["classes"],
@@ -85,14 +87,16 @@ def health():
 async def predict(
     request: Request,
     content_type: str = Header(None, alias="Content-Type"),
+    x_audio_format: str = Header("int16le", alias="X-Audio-Format"),
     x_sample_rate: str = Header(None, alias="X-Sample-Rate"),
 ):
-    """Mengklasifikasikan potongan audio PCM mono Int16 menjadi probabilitas suara berisik.
+    """Mengklasifikasikan audio PCM mono menjadi probabilitas suara berisik.
 
     Kontrak API:
     - Header Content-Type: application/octet-stream
+    - Header X-Audio-Format: float32le (atau int16le untuk klien lama)
     - Header X-Sample-Rate: 22050
-    - Body: Byte stream Int16 little-endian PCM
+    - Body: Byte stream little-endian sesuai format yang dikirim
     """
     start_time = time.perf_counter()
 
@@ -133,24 +137,40 @@ async def predict(
             detail="Body audio kosong.",
         )
 
-    # Panjang sampel Int16 harus genap (2 byte per sampel)
-    if len(body_bytes) % 2 != 0:
+    audio_format = x_audio_format.strip().lower()
+    bytes_per_sample = {"int16le": 2, "float32le": 4}.get(audio_format)
+    if bytes_per_sample is None:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="X-Audio-Format harus int16le atau float32le.",
+        )
+
+    if len(body_bytes) % bytes_per_sample != 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Panjang byte stream audio tidak valid untuk format Int16 (harus kelipatan 2).",
+            detail=f"Panjang byte stream tidak valid untuk {audio_format}.",
         )
 
     # Minimal durasi audio 0.5 detik untuk ekstraksi STFT yang stabil
-    min_bytes = int(sr_val * 0.5 * 2)
+    min_bytes = int(sr_val * 0.5 * bytes_per_sample)
     if len(body_bytes) < min_bytes:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Durasi audio terlalu pendek (minimal {min_bytes} byte / 0.5 detik).",
         )
 
-    # 4. Konversi Int16 PCM little-endian ke float32 [-1.0, 1.0]
-    int16_samples = np.frombuffer(body_bytes, dtype=np.int16)
-    float32_samples = int16_samples.astype(np.float32) / 32768.0
+    # 4. Decode PCM ke float32 tanpa membulatkan input Float32 dari browser.
+    if audio_format == "float32le":
+        float32_samples = np.frombuffer(body_bytes, dtype="<f4").astype(np.float32, copy=False)
+        if not np.all(np.isfinite(float32_samples)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Audio Float32 mengandung nilai NaN atau tak hingga.",
+            )
+        float32_samples = np.clip(float32_samples, -1.0, 1.0)
+    else:
+        int16_samples = np.frombuffer(body_bytes, dtype="<i2")
+        float32_samples = int16_samples.astype(np.float32) / 32768.0
 
     # 5. Jalankan inferensi (audio tidak pernah disimpan ke disk atau dicatat ke log)
     try:

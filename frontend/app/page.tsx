@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import Waveform from "@/components/Waveform";
+import AcousticSpectrum from "@/components/AcousticSpectrum";
 import NoiseMeter from "@/components/NoiseMeter";
 import StatusCard from "@/components/StatusCard";
 import AlarmHistory, { type AlarmHistoryEntry } from "@/components/AlarmHistory";
@@ -35,6 +37,7 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [alarmState, setAlarmState] = useState<AlarmState>("AMAN");
   const [score, setScore] = useState<number>(0);
+  const [modelNoisyDetected, setModelNoisyDetected] = useState(false);
   const [calmRemaining, setCalmRemaining] = useState<number | undefined>(
     undefined
   );
@@ -109,6 +112,7 @@ export default function Home() {
     if (audioCaptureRef.current?.isActive()) return;
 
     setError(null);
+    setModelNoisyDetected(false);
 
     try {
       if (!alarmPlayerRef.current) {
@@ -136,6 +140,7 @@ export default function Home() {
           setError(null);
 
           const newScore = smootherRef.current.push(result.noise_probability);
+          setModelNoisyDetected(result.label === "berisik");
           const step = alarmMachineRef.current.step(newScore, Date.now());
 
           setScore(newScore);
@@ -144,14 +149,16 @@ export default function Home() {
           setConfirmRemaining(step.confirmRemainingSeconds);
           setRepeatRemaining(step.repeatRemainingSeconds);
 
-          if (step.play && alarmPlayerRef.current) {
-            alarmPlayerRef.current.play(step.play);
+          const playedAlarm = step.play;
+          if (playedAlarm && alarmPlayerRef.current) {
+            alarmPlayerRef.current.play(playedAlarm);
             const now = new Date();
             const timeStr = now.toTimeString().slice(0, 8);
             setAlarmHistory((prev) => [
               {
                 time: timeStr,
-                type: step.play === "alarm1" ? "60%" : "80%",
+                type: playedAlarm,
+                threshold: playedAlarm === "alarm1" ? threshold1 : threshold2,
                 score: newScore,
               },
               ...prev.slice(0, 19),
@@ -403,8 +410,12 @@ export default function Home() {
           </div>
 
           {/* Status Pill & Pengaturan */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <StatusPill alarmState={alarmState} isActive={isActive} />
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <StatusPill alarmState={alarmState} isActive={isActive} isModelDetectingNoise={modelNoisyDetected} threshold1={threshold1} threshold2={threshold2} />
+
+            <Link className="btn-ghost model-nav-link" href="/model">
+              Tentang Model
+            </Link>
 
             <button
               className="btn-ghost"
@@ -508,12 +519,16 @@ export default function Home() {
         {/* 4. MAIN CONTENT */}
         <main style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           {/* WAVEFORM */}
-          <section aria-label="Visualisasi Gelombang Suara">
-            <Waveform
-              analyser={analyser}
-              isActive={isActive}
-              alarmState={alarmState}
-            />
+          <section className="visualization-grid" aria-label="Visualisasi audio">
+            <div aria-label="Gelombang suara">
+              <Waveform
+                analyser={analyser}
+                isActive={isActive}
+                alarmState={alarmState}
+                displayGain={micGain}
+              />
+            </div>
+            <AcousticSpectrum analyser={analyser} isActive={isActive} />
           </section>
 
           {/* METER & KARTU STATUS (GRID RESPONSIF) */}
@@ -529,6 +544,7 @@ export default function Home() {
               threshold1={threshold1}
               threshold2={threshold2}
               alarmState={alarmState}
+              isModelDetectingNoise={modelNoisyDetected}
             />
             <StatusCard
               alarmState={alarmState}
@@ -536,6 +552,9 @@ export default function Home() {
               calmRemainingSeconds={calmRemaining}
               confirmRemainingSeconds={confirmRemaining}
               repeatRemainingSeconds={repeatRemaining}
+              threshold1={threshold1}
+              threshold2={threshold2}
+              isModelDetectingNoise={modelNoisyDetected}
             />
           </section>
 
@@ -572,7 +591,7 @@ export default function Home() {
                 onClick={handleTestAlarms}
                 disabled={isTestingAlarm}
                 id="btn-test-alarm"
-                title="Putar alarm 60% dan 80% untuk menguji suara"
+                title="Putar alarm tingkat 1 dan 2 untuk menguji suara"
                 style={{ padding: "6px 14px", fontSize: "13px" }}
               >
                 <svg
@@ -690,7 +709,7 @@ export default function Home() {
               borderTop: "1px dashed rgba(186, 215, 247, 0.08)",
             }}
           >
-            <span>AKURASI MODEL: 92.68% (SVC RBF + 60 K-BEST)</span>
+            <span>MODEL 5.0 · AKURASI: 97.56% (SVC RBF + 80 K-BEST)</span>
             <span>SAMPLE RATE: 22.05 kHz &bull; WINDOW: 5.0S &bull; HOP: 1.0S</span>
           </div>
         </footer>

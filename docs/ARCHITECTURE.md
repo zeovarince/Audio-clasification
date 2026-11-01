@@ -4,8 +4,8 @@
 
 Dua bagian terpisah:
 
-- **Frontend (Next.js di folder `frontend/`)**: menangkap mikrofon pada 22050 Hz mono, menggambar waveform, mengubah probabilitas menjadi skor 0–100, menjalankan logika alarm, dan memutar audio alarm.
-- **Backend (FastAPI, Python di folder `backend/`)**: memuat artefak Model 4.0 dari `backend/models/`, mengekstrak 112 fitur, dan mengembalikan probabilitas berisik.
+- **Frontend (Next.js di folder `frontend/`)**: menangkap mikrofon pada 22050 Hz mono, menggambar waveform dan spektrum langsung, mengubah probabilitas menjadi skor 0–100, menjalankan logika alarm, dan memutar audio alarm.
+- **Backend (FastAPI, Python di folder `backend/`)**: memuat salinan Model 5.0 dari `backend/models/modelaudiov5.joblib`, mengekstrak 110 fitur, dan mengembalikan probabilitas berisik. Salinan ini harus identik dengan artefak training di `model5.0/`.
 
 Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi dipisah ke backend Python.
 
@@ -21,7 +21,7 @@ Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi di
 |        +--> AudioWorklet -> buffer PCM (mono, 22050 Hz)                 |
 |                                |                                        |
 |                                v  tiap 1.0s, kirim 5.0s audio           |
-|                      POST /predict (Int16 PCM)                          |
+|                    POST /predict (Float32 PCM)                           |
 |                                |                                        |
 |   skor keramaian <-- rata-rata <-- noise_probability                    |
 |        |                                                                |
@@ -43,7 +43,7 @@ Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi di
 | Frontend | Next.js (App Router), TypeScript, Tailwind CSS v4 di `frontend/` |
 | Audio di browser | Web Audio API: `getUserMedia`, `AnalyserNode`, `AudioWorklet` |
 | Backend | FastAPI, Uvicorn di `backend/` |
-| ML | Model 4.0: SVM RBF, 112 fitur; scikit-learn 1.6.1, joblib, numpy, librosa |
+| ML | Model 5.0: SVC RBF + SelectKBest(k=80), 110 fitur; scikit-learn 1.6.1, joblib, numpy, librosa |
 | Deploy | Docker Compose di server lab pada port 8007; lihat `../DEPLOY_DOCKER.md` |
 
 ## 3. Struktur repo
@@ -54,7 +54,8 @@ Audio-clasification/
   README.md
   docs/                      # semua dokumen spesifikasi
   alrm/                      # audio alarm sumber (alarm60%.mp3, alarm80%.mp3)
-  backend/models/            # artefak Model 4.0 (112 fitur)
+  model5.0/ # artefak training Model 5.0 (110 fitur)
+  backend/models/modelaudiov5.joblib # salinan yang dimuat backend/Docker
   frontend/                  # aplikasi Next.js
     app/
       layout.tsx
@@ -94,8 +95,9 @@ Audio-clasification/
 
 Request:
 - Header `Content-Type: application/octet-stream`
+- Header `X-Audio-Format: float32le` (Int16 little-endian tetap didukung untuk klien lama)
 - Header `X-Sample-Rate: 22050` (harus sama dengan sample rate model)
-- Body: audio mono, Int16 little-endian PCM, panjang sesuai `WINDOW_SECONDS` (default 5.0 detik = 110.250 sampel = 220.500 bytes)
+- Body: audio mono, Float32 little-endian PCM, panjang sesuai `WINDOW_SECONDS` (default 5.0 detik = 110.250 sampel = 441.000 bytes)
 
 Response 200:
 ```json
@@ -118,8 +120,9 @@ Error:
 {
   "status": "ok",
   "model_loaded": true,
-  "model_version": "4.0",
-  "feature_count": 112,
+  "model_version": "5.0",
+  "feature_count": 110,
+  "decision_threshold": 0.5,
   "sample_rate": 22050,
   "sklearn_version": "1.6.1"
 }
@@ -131,7 +134,7 @@ Dipakai tombol "Tes koneksi" di UI dan untuk pemantauan ketersediaan backend.
 
 1. Pengguna menekan Mulai. Frontend membuat `AudioContext` pada 22050 Hz; browser mengonversi audio device ke sample rate konteks. Jika konteks tidak dapat memakai 22050 Hz, frontend menampilkan error dan tidak mengirim audio dengan sample rate keliru.
 2. `AudioWorklet` mengumpulkan sampel mono ke ring buffer.
-3. Setiap `HOP_SECONDS` (default 1 detik), frontend mengambil `WINDOW_SECONDS` terakhir (default 5 detik), mengonversi Float32 ke Int16, dan mengirim ke `/predict`.
+3. Setiap `HOP_SECONDS` (default 1 detik), frontend mengambil `WINDOW_SECONDS` terakhir (default 5 detik), mempertahankan PCM Float32, dan mengirim ke `/predict`.
 4. Respons masuk ke `smoothing.ts` (rata-rata `SMOOTHING_WINDOW` nilai terakhir) menjadi skor 0 sampai 100.
 5. Skor dikirim ke `NoiseMeter` dan `alarm-machine.ts`. Jika mesin mengembalikan `play`, `alarm-player.ts` memutar file audio yang sesuai (`alarm-60.mp3` atau `alarm-80.mp3`).
 6. Waveform berjalan terpisah di `requestAnimationFrame`, dari `AnalyserNode`, sehingga tetap mulus 60 fps walau panggilan jaringan backend memakan waktu.
@@ -146,11 +149,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 `backend/.env` (atau variabel lingkungan di host):
 ```
 ALLOWED_ORIGINS=http://localhost:3000
-MODEL_DIR=./models
+MODEL_DIR=./backend/models
 ```
 
 `frontend/lib/config.ts` berisi nilai yang berasal dari `MODEL_SPEC.md` dan `ALARM_LOGIC.md`:
-`SAMPLE_RATE = 22050`, `WINDOW_SECONDS = 5.0`, `HOP_SECONDS = 1.0`, `THRESHOLD_1 = 60`, `THRESHOLD_2 = 80`, `CALM_HOLD_SECONDS = 3`, `SMOOTHING_WINDOW = 3`, `JUMP_TO_ALARM_2 = true`.
+`SAMPLE_RATE = 22050`, `WINDOW_SECONDS = 5.0`, `HOP_SECONDS = 1.0`, `THRESHOLD_1 = 60`, `THRESHOLD_2 = 80`, `CALM_HOLD_SECONDS = 3`, `SMOOTHING_WINDOW = 2`, `DEFAULT_MIC_GAIN = 2.0`, `JUMP_TO_ALARM_2 = true`. Model 5.0 memberi label berisik mulai probabilitas 0,50 secara terpisah dari pemicu alarm.
 
 ## 7. Penanganan error
 
@@ -171,6 +174,6 @@ MODEL_DIR=./models
 
 ## 9. Catatan performa
 
-- 5 detik audio mono 22050 Hz Int16 kira-kira 220 KB. Satu request per detik sangat ringan untuk jaringan lokal lab.
+- 5 detik audio mono 22050 Hz Float32 kira-kira 441 KB. Satu request per detik tetap sesuai untuk jaringan lokal lab.
 - Model dimuat sekali saat startup backend.
 - Ekstraksi fitur menggunakan STFT dan MFCC yang dioptimalkan dengan numpy dan librosa.

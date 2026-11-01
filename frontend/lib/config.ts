@@ -19,7 +19,7 @@ export const WINDOW_SECONDS = 5.0;
 /** Jeda antar pengiriman potongan audio (detik) */
 export const HOP_SECONDS = 1.0;
 
-/** Ambang alarm 1 (persen) */
+/** Ambang alarm pertama (terpisah dari batas klasifikasi Model 5.0 sebesar 0.50) */
 export const DEFAULT_THRESHOLD_1 = 60;
 
 /** Ambang alarm 2 (persen) */
@@ -40,7 +40,7 @@ export const DEFAULT_ALARM_REPEAT_SECONDS = 10;
 export const JUMP_TO_ALARM_2 = true;
 
 /** Jumlah hasil prediksi terakhir yang dirata-ratakan */
-export const SMOOTHING_WINDOW = 3;
+export const SMOOTHING_WINDOW = 2;
 
 /** Sensitivitas / penguatan gain mikrofon default (pengali) */
-export const DEFAULT_MIC_GAIN = 1.0;
+export const DEFAULT_MIC_GAIN = 2.0;

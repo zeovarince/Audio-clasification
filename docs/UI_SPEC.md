@@ -26,12 +26,12 @@ Satu halaman dashboard di `/`.
 |   +----------------------+   +---------------------------+   |
 |   |  Persentase          |   |  Status alarm             |   |
 |   |  keramaian: 73%      |   |  Peringatan 1             |   |
-|   |  [====|====|=====]   |   |  Alarm 60% berbunyi 12:04 |   |
+|   |  [====|====|=====]   |   |  Alarm tingkat 1 berbunyi |   |
 |   |       60   80        |   |                           |   |
 |   +----------------------+   +---------------------------+   |
 |                                                              |
 |   Riwayat alarm                          [Tes alarm] [Atur]  |
-|   12:04:10  Alarm 60%  keramaian 62%                         |
+|   12:04:10  Alarm 1 (60%)  keramaian 62%                     |
 |   12:05:31  Alarm 80%  keramaian 84%                         |
 +--------------------------------------------------------------+
 ```
@@ -52,7 +52,7 @@ Satu halaman dashboard di `/`.
 
 ### 3.3 Meter persentase (`NoiseMeter.tsx`)
 - Angka besar di atas, misalnya `73%`, memakai font display.
-- Bar horizontal 0 sampai 100 dengan dua penanda tetap di 60 dan 80 yang diberi label kecil.
+- Bar horizontal 0 sampai 100 dengan penanda ambang alarm yang ditentukan di pengaturan (default 60 dan 80).
 - Isi bar berubah mengikuti skor dengan transisi 300 ms.
 - Warna isi bar mengikuti status (lihat `DESIGN.md`, bagian status).
 - Nilai diambil dari skor yang sudah dihaluskan (`ALARM_LOGIC.md` bagian 3).
@@ -63,7 +63,7 @@ Satu halaman dashboard di `/`.
 |---|---|---|
 | Belum memantau | Belum aktif | Tekan Mulai Pemantauan untuk mulai. |
 | `AMAN` | Lab tenang | Suasana lab terkendali. |
-| `PERINGATAN_1` | Mulai ramai | Alarm 60% sudah berbunyi. |
+| `PERINGATAN_1` | Mulai ramai | Alarm 1 sudah berbunyi setelah skor melewati ambang default 60%. |
 | `PERINGATAN_2` | Terlalu berisik | Alarm 80% sudah berbunyi. Mohon kurangi suara. |
 
 - Area ini memakai `aria-live="polite"` agar perubahan status dibacakan pembaca layar.
@@ -71,11 +71,11 @@ Satu halaman dashboard di `/`.
 
 ### 3.5 Riwayat alarm (`AlarmHistory.tsx`)
 - Daftar terbaru di atas, maksimal 20 entri, hanya selama sesi (tidak disimpan permanen).
-- Tiap entri: jam (HH:MM:SS), jenis alarm (60% atau 80%), nilai keramaian saat alarm.
+- Tiap entri: jam (HH:MM:SS), jenis alarm, nilai ambang, dan skor keramaian saat alarm.
 - Kosong: "Belum ada alarm pada sesi ini."
 
 ### 3.6 Tombol Tes alarm
-- Memutar alarm 60% lalu alarm 80% satu per satu agar pengguna bisa memastikan volume dan izin audio.
+- Memutar alarm tingkat 1 lalu tingkat 2 satu per satu agar pengguna bisa memastikan volume dan izin audio.
 - Tidak mengubah state mesin alarm dan tidak masuk riwayat.
 
 ### 3.7 Panel pengaturan (drawer)
@@ -93,7 +93,7 @@ Satu halaman dashboard di `/`.
 | Izin mikrofon ditolak | Izin mikrofon belum diberikan. Izinkan akses mikrofon di pengaturan browser, lalu coba lagi. |
 | Backend tidak terjangkau | Server klasifikasi belum merespons. Memeriksa koneksi lagi... |
 | Backend sedang bangun | Server sedang menyala, mohon tunggu sekitar setengah menit. |
-| Alarm 60% (teks bantu) | Mulai ramai |
+| Alarm 1 (teks bantu) | Mulai ramai |
 | Alarm 80% (teks bantu) | Terlalu berisik |
 | Tab disembunyikan | Biarkan tab ini tetap terbuka agar pemantauan berjalan normal. |
 | Audio alarm | Tolong jangan berisik di lab. |

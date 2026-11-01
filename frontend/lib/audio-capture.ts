@@ -121,15 +121,16 @@ export function createAudioCapture(
           windowSamples[i] = ringBuffer[(writePos + i) % bufferSize];
         }
 
-        // Konversi Float32 ke Int16 dengan penguatan sensitivitas gain
-        const int16 = new Int16Array(bufferSize);
+        // Pertahankan presisi Float32 seperti audio saat training.
+        // Int16 menambahkan kuantisasi yang mengubah fitur spectral contrast.
+        const pcm = new Float32Array(bufferSize);
         for (let i = 0; i < bufferSize; i++) {
           const s = Math.max(-1, Math.min(1, windowSamples[i] * currentGain));
-          int16[i] = s < 0 ? s * 32768 : s * 32767;
+          pcm[i] = s;
         }
 
         pendingRequest = true;
-        predict(int16.buffer)
+        predict(pcm.buffer)
           .then((result) => {
             if (active) {
               callbacks.onPrediction(result);

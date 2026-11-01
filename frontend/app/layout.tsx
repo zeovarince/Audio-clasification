@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SilentGuard Lab – Pemantau Kebisingan Lab",
   description:
-    "Sistem pemantau kebisingan lab berbasis browser. Deteksi suara berisik secara real-time dengan akurasi 92%.",
+    "Sistem pemantau kebisingan lab berbasis browser dengan Model 5.0 SVC RBF, threshold 60%, dan akurasi holdout 97,56%.",
   icons: {
     icon: "/logosilent.png",
     shortcut: "/logosilent.png",

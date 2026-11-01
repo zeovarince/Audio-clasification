@@ -110,7 +110,7 @@ export function createAlarmMachine(config: AlarmConfig) {
           confirmSince2 = null;
         }
 
-        // Skor masih di rentang 60% - 79% (tetap ramai di level 1)
+        // Skor masih di antara threshold1 dan threshold2 (tetap level 1)
         // Cek apakah sudah waktunya alarm diulang
         if (config.repeatIntervalMs > 0 && lastAlarmTime !== null) {
           const elapsedSinceAlarm = nowMs - lastAlarmTime;

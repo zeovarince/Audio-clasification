@@ -5,18 +5,19 @@ Dokumen ini adalah sumber kebenaran untuk kapan alarm berbunyi. Kode di `fronten
 ## 1. Istilah
 
 - **Skor keramaian**: angka 0 sampai 100 hasil penghalusan probabilitas "berisik" dari model (lihat bagian 3).
-- **Alarm 1**: file audio untuk ambang 60%.
+- **Deteksi model**: label `berisik` bila probabilitas >= 0,50 sesuai artefak Model 5.0. Ini hanya klasifikasi, bukan pemicu alarm.
+- **Alarm 1**: file audio untuk ambang pertama (default 60%).
 - **Alarm 2**: file audio untuk ambang 80%.
 
 ## 2. Parameter (semua bisa diubah di `frontend/lib/config.ts`)
 
 | Parameter | Default | Arti |
 |---|---|---|
-| `THRESHOLD_1` | 60 | Ambang alarm 1 |
+| `THRESHOLD_1` | 60 | Ambang alarm 1; terpisah dari batas keputusan model 0,50 |
 | `THRESHOLD_2` | 80 | Ambang alarm 2 |
-| `CALM_HOLD_SECONDS` | 3 | Skor harus berada di bawah `THRESHOLD_1` selama sekian detik sebelum sistem dianggap kembali tenang (mencegah alarm berulang akibat skor naik turun di sekitar 60) |
+| `CALM_HOLD_SECONDS` | 3 | Skor harus berada di bawah `THRESHOLD_1` selama sekian detik sebelum sistem dianggap kembali tenang |
 | `JUMP_TO_ALARM_2` | true | Jika skor melonjak langsung dari tenang ke 80 atau lebih, langsung putar alarm 2 tanpa alarm 1 |
-| `SMOOTHING_WINDOW` | 3 | Jumlah hasil prediksi terakhir yang dirata-ratakan menjadi skor |
+| `SMOOTHING_WINDOW` | 2 | Jumlah hasil prediksi terakhir yang dirata-ratakan menjadi skor |
 
 ## 3. Cara menghitung skor keramaian
 
@@ -25,6 +26,8 @@ Dokumen ini adalah sumber kebenaran untuk kapan alarm berbunyi. Kode di `fronten
 3. Skor = rata-rata dikali 100, dibulatkan ke bilangan bulat.
 
 Penghalusan membuat satu teriakan sesaat tidak langsung memicu alarm, dan angka di layar tidak loncat-loncat.
+
+Skor ini adalah probabilitas prediksi model, bukan pengukuran desibel. Audio dianalisis dalam jendela berjalan 5 detik yang diperbarui tiap 1 detik, sehingga perubahan suara dapat memerlukan beberapa detik untuk sepenuhnya tercermin pada skor. Gain mikrofon bisa dinaikkan dari pengaturan jika level input perangkat terlalu rendah.
 
 ## 4. State
 
@@ -53,7 +56,7 @@ Aturan tambahan:
 ## 6. Keputusan terbuka (nilai default dipakai sampai diputuskan)
 
 1. **Lonjakan langsung ke 80 atau lebih dari state `AMAN`**: default langsung alarm 2 (`JUMP_TO_ALARM_2` = true).
-2. **Skor turun dari 80 ke rentang 60 sampai 79**: default tetap `PERINGATAN_2` dan diam. Alternatif: turun ke `PERINGATAN_1`, sehingga kenaikan berikutnya ke 80 membunyikan alarm 2 lagi.
+2. **Skor turun dari 80 ke rentang `THRESHOLD_1` sampai 79**: default tetap `PERINGATAN_2` dan diam. Alternatif: turun ke `PERINGATAN_1`, sehingga kenaikan berikutnya ke 80 membunyikan alarm 2 lagi.
 3. **Pengingat berulang**: default tidak ada. Alternatif: ulangi alarm tiap N detik selama keramaian bertahan.
 
 ## 7. Implementasi referensi (TypeScript)
@@ -121,7 +124,7 @@ export function createAlarmMachine(config: AlarmConfig) {
 
 ## 8. Skenario uji
 
-Gunakan tabel ini sebagai dasar unit test (`frontend/lib/alarm-machine.test.ts`). `CALM_HOLD_SECONDS` = 3.
+Gunakan tabel ini sebagai dasar unit test (`frontend/lib/alarm-machine.test.ts`). `THRESHOLD_1` = 60, `THRESHOLD_2` = 80, dan `CALM_HOLD_SECONDS` = 3. Batas klasifikasi berisik dari Model 5.0 tetap 0,50 dan tidak mengubah pemicu alarm.
 
 | # | Urutan skor (tiap detik) | Alarm yang berbunyi |
 |---|---|---|
