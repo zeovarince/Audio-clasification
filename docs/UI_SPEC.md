@@ -27,12 +27,12 @@ Satu halaman dashboard di `/`.
 |   |  Persentase          |   |  Status alarm             |   |
 |   |  keramaian: 73%      |   |  Peringatan 1             |   |
 |   |  [====|====|=====]   |   |  Alarm tingkat 1 berbunyi |   |
-|   |       60   80        |   |                           |   |
+|   |       60   75        |   |                           |   |
 |   +----------------------+   +---------------------------+   |
 |                                                              |
 |   Riwayat alarm                          [Tes alarm] [Atur]  |
 |   12:04:10  Alarm 1 (60%)  keramaian 62%                     |
-|   12:05:31  Alarm 80%  keramaian 84%                         |
+|   12:05:31  Alarm 75%  keramaian 78%                         |
 +--------------------------------------------------------------+
 ```
 
@@ -52,7 +52,7 @@ Satu halaman dashboard di `/`.
 
 ### 3.3 Meter persentase (`NoiseMeter.tsx`)
 - Angka besar di atas, misalnya `73%`, memakai font display.
-- Bar horizontal 0 sampai 100 dengan penanda ambang alarm yang ditentukan di pengaturan (default 60 dan 80).
+- Bar horizontal 0 sampai 100 dengan penanda ambang alarm yang ditentukan di pengaturan (default 60 dan 75).
 - Isi bar berubah mengikuti skor dengan transisi 300 ms.
 - Warna isi bar mengikuti status (lihat `DESIGN.md`, bagian status).
 - Nilai diambil dari skor yang sudah dihaluskan (`ALARM_LOGIC.md` bagian 3).
@@ -64,7 +64,7 @@ Satu halaman dashboard di `/`.
 | Belum memantau | Belum aktif | Tekan Mulai Pemantauan untuk mulai. |
 | `AMAN` | Lab tenang | Suasana lab terkendali. |
 | `PERINGATAN_1` | Mulai ramai | Alarm 1 sudah berbunyi setelah skor melewati ambang default 60%. |
-| `PERINGATAN_2` | Terlalu berisik | Alarm 80% sudah berbunyi. Mohon kurangi suara. |
+| `PERINGATAN_2` | Terlalu berisik | Alarm 75% sudah berbunyi. Mohon kurangi suara. |
 
 - Area ini memakai `aria-live="polite"` agar perubahan status dibacakan pembaca layar.
 - Saat `PERINGATAN_2`, kartu berdenyut pelan (pulse) dan menghormati `prefers-reduced-motion`.
@@ -79,7 +79,7 @@ Satu halaman dashboard di `/`.
 - Tidak mengubah state mesin alarm dan tidak masuk riwayat.
 
 ### 3.7 Panel pengaturan (drawer)
-- Slider ambang alarm 1 (default 60) dan alarm 2 (default 80); alarm 2 harus selalu lebih besar dari alarm 1.
+- Slider ambang alarm 1 (default 60) dan alarm 2 (default 75); alarm 2 harus selalu lebih besar dari alarm 1.
 - Pilihan tahan tenang (`CALM_HOLD_SECONDS`).
 - Tombol "Tes koneksi" yang memanggil `GET /health` dan menampilkan hasilnya.
 - Tombol "Kembalikan default".
@@ -94,7 +94,7 @@ Satu halaman dashboard di `/`.
 | Backend tidak terjangkau | Server klasifikasi belum merespons. Memeriksa koneksi lagi... |
 | Backend sedang bangun | Server sedang menyala, mohon tunggu sekitar setengah menit. |
 | Alarm 1 (teks bantu) | Mulai ramai |
-| Alarm 80% (teks bantu) | Terlalu berisik |
+| Alarm 75% (teks bantu) | Terlalu berisik |
 | Tab disembunyikan | Biarkan tab ini tetap terbuka agar pemantauan berjalan normal. |
 | Audio alarm | Tolong jangan berisik di lab. |
 

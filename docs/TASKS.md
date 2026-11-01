@@ -63,8 +63,8 @@ Skenario uji lapangan (isi hasil di kolom kanan):
 |---|---|---|---|
 | 1 | Lab tenang 10 menit | Tidak ada alarm | |
 | 2 | Obrolan biasa 2 sampai 3 orang | Tidak ada alarm, atau paling banyak alarm 60% | |
-| 3 | Keramaian naik bertahap | Alarm 60%, lalu alarm 80% | |
-| 4 | Teriakan sesaat | Tidak langsung alarm 80% (penghalusan bekerja) | |
+| 3 | Keramaian naik bertahap | Alarm 60%, lalu alarm 75% setelah konfirmasi | |
+| 4 | Teriakan sesaat | Tidak langsung alarm 75% (penghalusan dan konfirmasi bekerja) | |
 | 5 | Ramai, tenang, lalu ramai lagi | Alarm 60% berbunyi lagi | |
 | 6 | Suara kipas atau AC saja | Tidak dianggap berisik | |
 | 7 | Backend dimatikan saat memantau | Banner error, tidak ada alarm palsu | |

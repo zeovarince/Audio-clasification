@@ -50,7 +50,7 @@ Rumus ekstraksi harus tetap cocok dengan training Model 5.0. Nama fitur yang sam
 }
 ```
 
-`noise_probability` adalah probabilitas kelas berisik pada rentang 0-1, bukan ukuran desibel langsung. Label backend memakai threshold Model 5.0 sebesar 0,50. Alarm dashboard tetap memakai ambang terpisah: 60% untuk alarm pertama dan 80% untuk alarm kedua.
+`noise_probability` adalah probabilitas kelas berisik pada rentang 0-1, bukan ukuran desibel langsung. Label backend memakai threshold Model 5.0 sebesar 0,50. Alarm dashboard tetap memakai ambang terpisah: 60% untuk alarm pertama dan 75% untuk alarm kedua.
 
 `GET /health` melaporkan versi model, jumlah fitur, threshold, sample rate, dan versi scikit-learn. Deploy dianggap sehat hanya jika Model 5.0 berhasil dimuat dan warm-up inferensinya berhasil.
 

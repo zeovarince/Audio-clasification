@@ -14,7 +14,7 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 
 1. Mendeteksi keramaian di lab secara real-time memakai model yang sudah ada.
 2. Menampilkan kondisi suara secara jelas: waveform dan persentase keramaian.
-3. Menampilkan deteksi model pada ambang keputusan 35% dan membunyikan alarm bertahap pada ambang 60% dan 80% sesuai aturan di `ALARM_LOGIC.md`.
+3. Menampilkan deteksi model pada ambang keputusan 35% dan membunyikan alarm bertahap pada ambang 60% dan 75% sesuai aturan di `ALARM_LOGIC.md`.
 4. Bisa diakses lewat browser dan di-deploy ke internet.
 
 ## 4. Non-tujuan (versi ini)
@@ -41,7 +41,7 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 | FR-03 | Menampilkan persentase keramaian (0 sampai 100) yang diperbarui terus-menerus dan sudah dihaluskan | Must |
 | FR-04 | Audio dipotong per jendela waktu dan dikirim ke backend; backend mengembalikan probabilitas berisik | Must |
 | FR-05 | Alarm 1 berbunyi saat keramaian mencapai ambang 60% default | Must |
-| FR-06 | Alarm 2 berbunyi saat keramaian bertahan lalu naik mencapai 80% | Must |
+| FR-06 | Alarm 2 berbunyi saat keramaian bertahan lalu naik mencapai 75% | Must |
 | FR-07 | Setelah keramaian turun lalu naik lagi, alarm 1 berbunyi lagi (aturan lengkap di `ALARM_LOGIC.md`) | Must |
 | FR-08 | Indikator status: Aman, Peringatan 1, Peringatan 2 | Must |
 | FR-09 | Riwayat alarm selama sesi (waktu, jenis alarm, nilai keramaian) | Should |
@@ -92,8 +92,8 @@ Lab membutuhkan suasana yang cukup tenang untuk praktikum dan kerja fokus. Tegur
 ## 11. Pertanyaan terbuka
 
 1. "Persentase keramaian" diambil dari probabilitas kelas berisik, atau digabung dengan tingkat volume (RMS atau dB)? Default: probabilitas kelas berisik.
-2. Saat lonjakan langsung dari tenang ke 80% ke atas, alarm 80% langsung berbunyi? Default: ya.
-3. Setelah alarm 80% dan keramaian turun ke rentang 60 sampai 79, status tetap Peringatan 2 atau turun ke Peringatan 1? Default: tetap Peringatan 2.
+2. Saat lonjakan langsung dari tenang ke 75% ke atas, alarm 75% langsung berbunyi? Default: ya setelah konfirmasi 3 detik.
+3. Setelah alarm 75% dan keramaian turun ke rentang 60 sampai 74, status tetap Peringatan 2 atau turun ke Peringatan 1? Default: tetap Peringatan 2.
 4. Deploy akhir: Docker Compose pada server lab; lihat `../DEPLOY_DOCKER.md`.
 
 ## 12. Dokumen terkait

@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createAlarmMachine, type AlarmSound } from "./alarm-machine.ts";
+import {
+  DEFAULT_CONFIRM_DELAY_SECONDS,
+  DEFAULT_THRESHOLD_2,
+} from "./config.ts";
 
 const defaultConfig = {
   threshold1: 60,
@@ -91,6 +95,19 @@ test("Skenario 9: confirmDelay = 0 -> alarm langsung (backward compat)", () => {
   const machine = createAlarmMachine(instantConfig);
   const step1 = machine.step(62, 1000);
   assert.equal(step1.play, "alarm1");
+});
+
+test("Default aplikasi: skor 75% memicu alarm 2 setelah 3 detik", () => {
+  const machine = createAlarmMachine({
+    ...defaultConfig,
+    threshold2: DEFAULT_THRESHOLD_2,
+    confirmDelayMs: DEFAULT_CONFIRM_DELAY_SECONDS * 1000,
+  });
+  const firstStep = machine.step(DEFAULT_THRESHOLD_2, 1000);
+  assert.equal(firstStep.play, null);
+  const confirmedStep = machine.step(DEFAULT_THRESHOLD_2, 4000);
+  assert.equal(confirmedStep.play, "alarm2");
+  assert.equal(confirmedStep.state, "PERINGATAN_2");
 });
 
 test("Skenario 10: Pengulangan alarm jika tetap ramai (repeatIntervalMs = 10s)", () => {

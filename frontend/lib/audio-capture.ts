@@ -3,7 +3,13 @@
  * Mengelola getUserMedia, AudioContext, AnalyserNode, dan AudioWorklet.
  */
 
-import { SAMPLE_RATE, WINDOW_SECONDS, HOP_SECONDS, DEFAULT_MIC_GAIN } from "./config";
+import {
+  SAMPLE_RATE,
+  WINDOW_SECONDS,
+  HOP_SECONDS,
+  DEFAULT_MIC_GAIN,
+  MAX_MIC_GAIN,
+} from "./config";
 import { predict, type PredictResponse } from "./api";
 
 export interface AudioCaptureCallbacks {
@@ -192,7 +198,7 @@ export function createAudioCapture(
     stop,
     isActive: () => active,
     setGain: (gain: number) => {
-      currentGain = Math.max(0.5, Math.min(10, gain));
+      currentGain = Math.max(0.5, Math.min(MAX_MIC_GAIN, gain));
     },
   };
 }

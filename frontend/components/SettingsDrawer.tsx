@@ -8,6 +8,8 @@ import {
   DEFAULT_CALM_HOLD_SECONDS,
   DEFAULT_CONFIRM_DELAY_SECONDS,
   DEFAULT_ALARM_REPEAT_SECONDS,
+  DEFAULT_MIC_GAIN,
+  MAX_MIC_GAIN,
 } from "@/lib/config";
 
 interface SettingsDrawerProps {
@@ -216,7 +218,7 @@ export default function SettingsDrawer({
           </label>
           <input
             type="range"
-            min="1"
+            min="0"
             max="30"
             value={confirmDelaySeconds}
             onChange={(e) => onConfirmDelayChange(Number(e.target.value))}
@@ -338,7 +340,7 @@ export default function SettingsDrawer({
           <input
             type="range"
             min="1.0"
-            max="4.0"
+            max={MAX_MIC_GAIN}
             step="0.1"
             value={micGain}
             onChange={(e) => onMicGainChange(Number(e.target.value))}
@@ -350,7 +352,7 @@ export default function SettingsDrawer({
               marginTop: "4px",
             }}
           >
-            Gain awal 2,0x. Naikkan bertahap bila skor terlalu rendah; gain menguatkan audio untuk model. Jika suara terdengar pecah, turunkan kembali.
+            Gain awal {DEFAULT_MIC_GAIN.toFixed(1)}x. Naikkan bertahap bila skor terlalu rendah, maksimal {MAX_MIC_GAIN.toFixed(1)}x. Jika suara terdengar pecah, turunkan kembali.
           </div>
         </div>
 

@@ -7,16 +7,17 @@ Dokumen ini adalah sumber kebenaran untuk kapan alarm berbunyi. Kode di `fronten
 - **Skor keramaian**: angka 0 sampai 100 hasil penghalusan probabilitas "berisik" dari model (lihat bagian 3).
 - **Deteksi model**: label `berisik` bila probabilitas >= 0,50 sesuai artefak Model 5.0. Ini hanya klasifikasi, bukan pemicu alarm.
 - **Alarm 1**: file audio untuk ambang pertama (default 60%).
-- **Alarm 2**: file audio untuk ambang 80%.
+- **Alarm 2**: file audio untuk ambang 75%.
 
 ## 2. Parameter (semua bisa diubah di `frontend/lib/config.ts`)
 
 | Parameter | Default | Arti |
 |---|---|---|
 | `THRESHOLD_1` | 60 | Ambang alarm 1; terpisah dari batas keputusan model 0,50 |
-| `THRESHOLD_2` | 80 | Ambang alarm 2 |
+| `THRESHOLD_2` | 75 | Ambang alarm 2 |
 | `CALM_HOLD_SECONDS` | 3 | Skor harus berada di bawah `THRESHOLD_1` selama sekian detik sebelum sistem dianggap kembali tenang |
-| `JUMP_TO_ALARM_2` | true | Jika skor melonjak langsung dari tenang ke 80 atau lebih, langsung putar alarm 2 tanpa alarm 1 |
+| `CONFIRM_DELAY_SECONDS` | 3 | Skor harus tetap melewati ambang selama sekian detik sebelum alarm berbunyi |
+| `JUMP_TO_ALARM_2` | true | Jika skor melonjak langsung dari tenang ke 75 atau lebih, langsung putar alarm 2 tanpa alarm 1 |
 | `SMOOTHING_WINDOW` | 2 | Jumlah hasil prediksi terakhir yang dirata-ratakan menjadi skor |
 
 ## 3. Cara menghitung skor keramaian
@@ -55,8 +56,8 @@ Aturan tambahan:
 
 ## 6. Keputusan terbuka (nilai default dipakai sampai diputuskan)
 
-1. **Lonjakan langsung ke 80 atau lebih dari state `AMAN`**: default langsung alarm 2 (`JUMP_TO_ALARM_2` = true).
-2. **Skor turun dari 80 ke rentang `THRESHOLD_1` sampai 79**: default tetap `PERINGATAN_2` dan diam. Alternatif: turun ke `PERINGATAN_1`, sehingga kenaikan berikutnya ke 80 membunyikan alarm 2 lagi.
+1. **Lonjakan langsung ke 75 atau lebih dari state `AMAN`**: default masuk proses konfirmasi 3 detik lalu alarm 2 (`JUMP_TO_ALARM_2` = true).
+2. **Skor turun dari 75 ke rentang `THRESHOLD_1` sampai 74**: default tetap `PERINGATAN_2` dan diam. Alternatif: turun ke `PERINGATAN_1`, sehingga kenaikan berikutnya ke 75 membunyikan alarm 2 lagi.
 3. **Pengingat berulang**: default tidak ada. Alternatif: ulangi alarm tiap N detik selama keramaian bertahan.
 
 ## 7. Implementasi referensi (TypeScript)
@@ -124,7 +125,7 @@ export function createAlarmMachine(config: AlarmConfig) {
 
 ## 8. Skenario uji
 
-Gunakan tabel ini sebagai dasar unit test (`frontend/lib/alarm-machine.test.ts`). `THRESHOLD_1` = 60, `THRESHOLD_2` = 80, dan `CALM_HOLD_SECONDS` = 3. Batas klasifikasi berisik dari Model 5.0 tetap 0,50 dan tidak mengubah pemicu alarm.
+Gunakan tabel ini sebagai dasar unit test (`frontend/lib/alarm-machine.test.ts`). `THRESHOLD_1` = 60, `THRESHOLD_2` = 75, dan `CALM_HOLD_SECONDS` = 3. Batas klasifikasi berisik dari Model 5.0 tetap 0,50 dan tidak mengubah pemicu alarm.
 
 | # | Urutan skor (tiap detik) | Alarm yang berbunyi |
 |---|---|---|

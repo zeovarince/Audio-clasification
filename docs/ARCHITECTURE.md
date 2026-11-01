@@ -26,7 +26,7 @@ Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi di
 |   skor keramaian <-- rata-rata <-- noise_probability                    |
 |        |                                                                |
 |        +--> Meter persentase                                            |
-|        +--> Alarm machine (ALARM_LOGIC.md) -> putar alarm 60% / 80%     |
+|        +--> Alarm machine (ALARM_LOGIC.md) -> putar alarm 60% / 75%     |
 +-------------------------------------------------------------------------+
                                  |
                                  v
@@ -136,7 +136,7 @@ Dipakai tombol "Tes koneksi" di UI dan untuk pemantauan ketersediaan backend.
 2. `AudioWorklet` mengumpulkan sampel mono ke ring buffer.
 3. Setiap `HOP_SECONDS` (default 1 detik), frontend mengambil `WINDOW_SECONDS` terakhir (default 5 detik), mempertahankan PCM Float32, dan mengirim ke `/predict`.
 4. Respons masuk ke `smoothing.ts` (rata-rata `SMOOTHING_WINDOW` nilai terakhir) menjadi skor 0 sampai 100.
-5. Skor dikirim ke `NoiseMeter` dan `alarm-machine.ts`. Jika mesin mengembalikan `play`, `alarm-player.ts` memutar file audio yang sesuai (`alarm-60.mp3` atau `alarm-80.mp3`).
+5. Skor dikirim ke `NoiseMeter` dan `alarm-machine.ts`. Jika mesin mengembalikan `play`, `alarm-player.ts` memutar file audio yang sesuai (`alarm-60.mp3` atau `alarm-80.mp3`, dengan alarm kedua dipicu pada skor default 75%).
 6. Waveform berjalan terpisah di `requestAnimationFrame`, dari `AnalyserNode`, sehingga tetap mulus 60 fps walau panggilan jaringan backend memakan waktu.
 
 ## 6. Konfigurasi
@@ -153,7 +153,7 @@ MODEL_DIR=./backend/models
 ```
 
 `frontend/lib/config.ts` berisi nilai yang berasal dari `MODEL_SPEC.md` dan `ALARM_LOGIC.md`:
-`SAMPLE_RATE = 22050`, `WINDOW_SECONDS = 5.0`, `HOP_SECONDS = 1.0`, `THRESHOLD_1 = 60`, `THRESHOLD_2 = 80`, `CALM_HOLD_SECONDS = 3`, `SMOOTHING_WINDOW = 2`, `DEFAULT_MIC_GAIN = 2.0`, `JUMP_TO_ALARM_2 = true`. Model 5.0 memberi label berisik mulai probabilitas 0,50 secara terpisah dari pemicu alarm.
+`SAMPLE_RATE = 22050`, `WINDOW_SECONDS = 5.0`, `HOP_SECONDS = 1.0`, `THRESHOLD_1 = 60`, `THRESHOLD_2 = 75`, `CALM_HOLD_SECONDS = 3`, `DEFAULT_CONFIRM_DELAY_SECONDS = 3`, `SMOOTHING_WINDOW = 2`, `DEFAULT_MIC_GAIN = 2.5`, `MAX_MIC_GAIN = 5.0`, `JUMP_TO_ALARM_2 = true`. Model 5.0 memberi label berisik mulai probabilitas 0,50 secara terpisah dari pemicu alarm.
 
 ## 7. Penanganan error
 
