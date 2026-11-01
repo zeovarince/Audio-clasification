@@ -99,9 +99,9 @@ Audio-clasification/
 │
 ├── backend/                           # Layanan Backend FastAPI
 │   ├── main.py                        # Server FastAPI & CORS middleware
-│   ├── inference.py                   # Pipeline inferensi SVC (load model saat startup)
-│   ├── features.py                    # Ekstraksi fitur Model 5.0 (110 fitur dipakai model)
-│   ├── models/                         # Salinan aktif model5.0/modelaudiov5.joblib
+│   ├── inference.py                   # Pipeline inferensi ensemble (load model saat startup)
+│   ├── features.py                    # Ekstraksi fitur Model 3.0 (107 fitur akustik & rasio dinamis)
+│   ├── models/                         # Salinan aktif model3.0/MODEL_KLASIFIKASIV3-0.joblib
 │   ├── requirements.txt               # Dependensi Python
 │   ├── Dockerfile                     # Container production-ready
 │   ├── vercel.json                    # Konfigurasi legacy; deploy aktif memakai Docker Compose
@@ -170,15 +170,17 @@ Audio-clasification/
 - **Fitur:** 100 fitur audio (energi RMS-dB, MFCC, noise-floor, spektral, spectral contrast)
 - **Confusion Matrix:** `[[20, 0], [3, 18]]` — 3 file berisik salah diklasifikasi sebagai non-berisik
 
-### Model 3.0 — Ensemble Voting (Akurasi 95.12%)
+### Model 3.0 — Ensemble Voting (aktif di dashboard)
 
-- **Arsitektur:** Soft-Voting Ensemble (SVM 50% + LightGBM 30% + ExtraTrees 20%)
-- **Fitur:** 107 fitur (100 dasar + 7 rasio dinamis volume-invariant)
-- **Peningkatan:** False negative berkurang dari 3 → 2 file, varians CV turun dari ±6.44% → ±2.46%
+Backend aktif menggunakan `backend/models/MODEL_KLASIFIKASIV3-0.joblib`, salinan byte-identik dari `model3.0/MODEL_KLASIFIKASIV3-0.joblib` dengan threshold 0.50. Docker menyalin artefak backend tersebut ke `/app/models/`.
 
-### Model 5.0 - Pure SVM RBF (aktif di dashboard)
+- **Arsitektur:** Soft-Voting Ensemble (Tuned SVM 50% + LightGBM 30% + ExtraTrees 20%)
+- **Fitur:** 107 fitur (100 dasar spektral & MFCC + 7 rasio dinamis volume-invariant)
+- **Seleksi Fitur Internal:** SVM (k=70), LightGBM (k=60), ExtraTrees (k=65)
+- **Akurasi Holdout:** 95.12% (39 dari 41 file benar) dan 5-fold CV 95.51% ± 2.46%
+- **Threshold Keputusan:** 0.50 (50%)
 
-Backend aktif menggunakan `backend/models/modelaudiov5.joblib`, salinan byte-identik dari `model5.0/modelaudiov5.joblib` dengan threshold 0.60. Docker menyalin artefak backend tersebut ke `/app/models/`.
+### Model 5.0 - Pure SVM RBF
 
 - **Arsitektur:** `StandardScaler` → `SelectKBest(f_classif, k=80)` → `SVC(C=3, gamma=0.025, RBF)`
 - **Fitur:** 110 fitur input, disusun sesuai bundle Model 5.0; SelectKBest memilih 80 fitur saat inferensi.
@@ -248,7 +250,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ALLOWED_ORIGINS=http://localhost:3000
 MODEL_DIR=./backend/models
 ```
-Artefak sumber Model 5.0 berada di `model5.0/modelaudiov5.joblib`; salinan aktif backend berada di `backend/models/modelaudiov5.joblib`. Keduanya harus tetap identik. Docker menyalin artefak backend tersebut ke `/app/models/`.
+Artefak sumber Model 3.0 berada di `model3.0/MODEL_KLASIFIKASIV3-0.joblib`; salinan aktif backend berada di `backend/models/MODEL_KLASIFIKASIV3-0.joblib`. Keduanya harus tetap identik. Docker menyalin artefak backend tersebut ke `/app/models/`.
 
 ---
 

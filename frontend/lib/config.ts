@@ -19,7 +19,7 @@ export const WINDOW_SECONDS = 5.0;
 /** Jeda antar pengiriman potongan audio (detik) */
 export const HOP_SECONDS = 1.0;
 
-/** Ambang alarm pertama (terpisah dari batas klasifikasi Model 5.0 sebesar 0.50) */
+/** Ambang alarm pertama (terpisah dari batas klasifikasi Model 3.0 sebesar 0.50) */
 export const DEFAULT_THRESHOLD_1 = 60;
 
 /** Ambang alarm 2 (persen) */

@@ -6,6 +6,7 @@ FROM python:3.10-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     ffmpeg \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user for security (Hugging Face / Render / Railway compliant)
@@ -20,7 +21,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend source and the sole active model artifact.
 COPY --chown=user backend/main.py backend/inference.py backend/features.py ./
-COPY --chown=user backend/models/modelaudiov5.joblib ./models/modelaudiov5.joblib
+COPY --chown=user backend/models/MODEL_KLASIFIKASIV3-0.joblib ./models/MODEL_KLASIFIKASIV3-0.joblib
+COPY --chown=user backend/models/modelaudiov3.joblib ./models/modelaudiov3.joblib
 
 ENV PORT=8000 \
     MODEL_DIR=/app/models

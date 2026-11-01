@@ -161,7 +161,7 @@ export default function SettingsDrawer({
             onChange={(e) => onThreshold1Change(Number(e.target.value))}
           />
           <div style={{ fontSize: "11px", color: "var(--color-fog-veil)", marginTop: "6px" }}>
-            Model 5.0 mengklasifikasikan audio sebagai berisik mulai probabilitas 60%. Ambang Alarm 1 diatur terpisah dan default-nya juga 60%, dengan konfirmasi 5 detik.
+            Model 3.0 mengklasifikasikan audio sebagai berisik mulai probabilitas 50%. Ambang Alarm 1 diatur terpisah dan default-nya 60%, dengan konfirmasi 3 detik.
           </div>
         </div>
 

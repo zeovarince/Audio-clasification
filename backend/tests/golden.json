@@ -1,7 +1,7 @@
 [
   {
     "file": "berisik/24-003 berisik (1).mp3",
-    "expected_noise_probability": 0.971,
+    "expected_noise_probability": 0.920,
     "expected_label": "berisik"
   },
   {
@@ -11,12 +11,13 @@
   },
   {
     "file": "berisik/24-003 berisik (3).mp3",
-    "expected_noise_probability": 0.971,
+    "expected_noise_probability": 0.951,
     "expected_label": "berisik"
   },
   {
     "file": "non-berisik/24-003 sunyi 2.mp3",
-    "expected_noise_probability": 0.034,
+    "expected_noise_probability": 0.086,
     "expected_label": "non-berisik"
   }
 ]
+

@@ -709,7 +709,7 @@ export default function Home() {
               borderTop: "1px dashed rgba(186, 215, 247, 0.08)",
             }}
           >
-            <span>MODEL 5.0 · AKURASI: 97.56% (SVC RBF + 80 K-BEST)</span>
+            <span>MODEL 3.0 · AKURASI: 95.12% (ENSEMBLE: SVM + LIGHTGBM + ET)</span>
             <span>SAMPLE RATE: 22.05 kHz &bull; WINDOW: 5.0S &bull; HOP: 1.0S</span>
           </div>
         </footer>

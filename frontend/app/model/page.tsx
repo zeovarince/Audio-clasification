@@ -1,15 +1,15 @@
 import Link from "next/link";
 
 const metrics = [
-  { label: "Akurasi holdout", value: "97,56%", note: "40 dari 41 rekaman" },
-  { label: "Fitur model", value: "110", note: "80 fitur dipilih untuk klasifikasi" },
-  { label: "Algoritma", value: "SVC RBF", note: "C = 3 · gamma = 0,025" },
+  { label: "Akurasi holdout", value: "95,12%", note: "39 dari 41 rekaman (CV 95,51% ± 2,46%)" },
+  { label: "Fitur model", value: "107", note: "100 spektral + 7 rasio dinamis volume-invariant" },
+  { label: "Algoritma", value: "Soft-Voting Ensemble", note: "SVM (0.50) + LightGBM (0.30) + ExtraTrees (0.20)" },
 ];
 
 const pipeline = [
-  { number: "01", title: "Ekstraksi fitur", text: "Audio mono 22.050 Hz diubah menjadi 110 fitur akustik." },
-  { number: "02", title: "Seleksi fitur", text: "SelectKBest memilih 80 fitur yang paling informatif." },
-  { number: "03", title: "Klasifikasi", text: "SVC dengan kernel RBF menghasilkan probabilitas suara berisik." },
+  { number: "01", title: "Ekstraksi fitur", text: "Audio mono 22.050 Hz diubah menjadi 107 fitur akustik dan rasio dinamis." },
+  { number: "02", title: "Seleksi fitur", text: "SelectKBest internal per model (SVM k=70, LightGBM k=60, ExtraTrees k=65)." },
+  { number: "03", title: "Klasifikasi ensemble", text: "Soft-voting ensemble menggabungkan probabilitas dengan threshold keputusan 50%." },
 ];
 
 export default function ModelPage() {
@@ -17,23 +17,23 @@ export default function ModelPage() {
     <main className="model-page">
       <header className="model-page-header">
         <Link href="/" className="btn-ghost model-back-link">← Dashboard</Link>
-        <span className="badge">MODEL AKTIF · 5.0</span>
+        <span className="badge">MODEL AKTIF · 3.0</span>
       </header>
 
       <section className="glass-card model-hero">
         <div className="model-hero-copy">
           <p className="eyebrow">SILENTGUARD LAB · DETAIL MODEL</p>
           <h1 className="gradient-ice-text">Model klasifikasi kebisingan</h1>
-          <p>Model 5.0 menggunakan pipeline SVC RBF untuk mengubah 110 fitur audio menjadi probabilitas kebisingan secara real-time. Label berisik diberikan mulai threshold probabilitas 60%.</p>
+          <p>Model 3.0 menggunakan pipeline ensemble soft voting (Tuned SVM, LightGBM, dan Extra Trees) untuk mengubah 107 fitur audio menjadi probabilitas kebisingan secara real-time. Label berisik diberikan mulai threshold probabilitas 50%.</p>
         </div>
-        <div className="model-accuracy" aria-label="Akurasi holdout 97,56 persen">
-          <strong>97,56%</strong>
+        <div className="model-accuracy" aria-label="Akurasi holdout 95,12 persen">
+          <strong>95,12%</strong>
           <span>Akurasi holdout</span>
-          <small>40 benar · 1 salah dari 41 file</small>
+          <small>39 benar · 2 salah dari 41 file</small>
         </div>
       </section>
 
-      <section className="model-metrics-grid" aria-label="Metrik Model 5.0">
+      <section className="model-metrics-grid" aria-label="Metrik Model 3.0">
         {metrics.map((metric) => (
           <article className="glass-card model-metric-card" key={metric.label}>
             <span>{metric.label}</span>
@@ -60,7 +60,7 @@ export default function ModelPage() {
       </section>
 
       <aside className="model-evaluation-note">
-        Angka 97,56% adalah hasil evaluasi holdout pada 41 rekaman, bukan jaminan
+        Angka 95,12% adalah hasil evaluasi holdout pada 41 rekaman (dan 95,51% pada 5-fold cross validation), bukan jaminan
         akurasi untuk semua kondisi mikrofon. Hasil real-time dapat dipengaruhi
         oleh ruang, perangkat, jarak sumber suara, dan pengaturan gain.
       </aside>

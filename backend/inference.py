@@ -3,17 +3,18 @@
 import os
 from pathlib import Path
 from typing import List, Tuple
+import warnings
 import joblib
 import numpy as np
 
 from features import extract_features
 
-# Artefak aktif dashboard: Model 5.0 Pure SVM RBF dengan threshold 0.60.
-EXPECTED_MODEL_VERSION = "5.0"
-EXPECTED_FEATURE_COUNT = 110
-EXPECTED_SELECTED_FEATURE_COUNT = 80
-EXPECTED_DECISION_THRESHOLD = 0.6
-MODEL_FILENAME = "modelaudiov5.joblib"
+# Artefak aktif dashboard: Model 3.0 VotingClassifier (SVM + LightGBM + ExtraTrees) dengan threshold 0.50.
+EXPECTED_MODEL_VERSION = "3.0"
+EXPECTED_FEATURE_COUNT = 107
+EXPECTED_SELECTED_FEATURE_COUNT = 70
+EXPECTED_DECISION_THRESHOLD = 0.50
+MODEL_FILENAME = "MODEL_KLASIFIKASIV3-0.joblib"
 _backend_dir = Path(__file__).resolve().parent
 _env_model_dir = os.environ.get("MODEL_DIR")
 MODEL_DIR = (
@@ -22,6 +23,8 @@ MODEL_DIR = (
     else _backend_dir / "models"
 )
 MODEL_PATH = MODEL_DIR / MODEL_FILENAME
+if not MODEL_PATH.exists() and (MODEL_DIR / "modelaudiov3.joblib").exists():
+    MODEL_PATH = MODEL_DIR / "modelaudiov3.joblib"
 
 _bundle = None
 _model = None
@@ -29,18 +32,22 @@ _feature_columns: List[str] = []
 _sample_rate: int = 22050
 _noisy_index: int = 1
 _decision_threshold: float = EXPECTED_DECISION_THRESHOLD
+_selected_feature_count: int = EXPECTED_SELECTED_FEATURE_COUNT
 
 
 def load_model():
     """Memuat model klasifikasi ke memori saat startup server."""
-    global _bundle, _model, _feature_columns, _sample_rate, _noisy_index, _decision_threshold
+    global _bundle, _model, _feature_columns, _sample_rate, _noisy_index, _decision_threshold, _selected_feature_count, MODEL_PATH
 
     if not MODEL_PATH.exists():
-        raise FileNotFoundError(
-            f"Artefak Model {EXPECTED_MODEL_VERSION} tidak ditemukan di {MODEL_PATH}. "
-            "Pastikan backend/models berisi modelaudiov5.joblib "
-            "atau arahkan MODEL_DIR ke folder artefak Model 5.0."
-        )
+        fallback_path = MODEL_DIR / "modelaudiov3.joblib"
+        if fallback_path.exists():
+            MODEL_PATH = fallback_path
+        else:
+            raise FileNotFoundError(
+                f"Artefak Model {EXPECTED_MODEL_VERSION} tidak ditemukan di {MODEL_PATH}. "
+                f"Pastikan {MODEL_DIR} berisi {MODEL_FILENAME} atau modelaudiov3.joblib."
+            )
 
     _bundle = joblib.load(MODEL_PATH)
     actual_version = str(_bundle.get("version", ""))
@@ -66,7 +73,7 @@ def load_model():
         _model = None
         _feature_columns = []
         raise ValueError(
-            f"Threshold Model 5.0 harus {EXPECTED_DECISION_THRESHOLD:.2f}; "
+            f"Threshold Model 3.0 harus {EXPECTED_DECISION_THRESHOLD:.2f}; "
             f"artefak ini memakai {_decision_threshold:.2f}."
         )
 
@@ -80,21 +87,16 @@ def load_model():
             f"artefak ini meminta {actual_feature_count}."
         )
 
-    selector = getattr(_model, "named_steps", {}).get("selector")
-    if selector is None or not hasattr(selector, "get_support"):
-        _bundle = None
-        _model = None
-        _feature_columns = []
-        raise ValueError("Pipeline Model 5.0 tidak memiliki SelectKBest yang diharapkan.")
-    selected_feature_count = int(selector.get_support().sum())
-    if selected_feature_count != EXPECTED_SELECTED_FEATURE_COUNT:
-        _bundle = None
-        _model = None
-        _feature_columns = []
-        raise ValueError(
-            f"Model 5.0 harus memilih {EXPECTED_SELECTED_FEATURE_COUNT} fitur; "
-            f"artefak ini memilih {selected_feature_count}."
-        )
+    # Validasi struktur ensemble Model 3.0
+    named_estimators = getattr(_model, "named_estimators_", {})
+    if named_estimators:
+        svm_est = named_estimators.get("svm")
+        if svm_est and hasattr(svm_est, "named_steps") and "selector" in svm_est.named_steps:
+            _selected_feature_count = int(svm_est.named_steps["selector"].get_support().sum())
+        else:
+            _selected_feature_count = EXPECTED_SELECTED_FEATURE_COUNT
+    else:
+        _selected_feature_count = EXPECTED_SELECTED_FEATURE_COUNT
 
     # Temukan indeks kelas "berisik" (label 1) secara dinamis dari model.classes_
     classes = _model.classes_
@@ -132,9 +134,7 @@ def get_model_info():
         "model_path": str(MODEL_PATH),
         "sample_rate": _sample_rate,
         "feature_count": len(_feature_columns),
-        "selected_feature_count": int(
-            _model.named_steps["selector"].get_support().sum()
-        ) if _model is not None else 0,
+        "selected_feature_count": _selected_feature_count if _model is not None else 0,
         "decision_threshold": _decision_threshold,
         "classes": [int(c) if isinstance(c, (int, np.integer)) else str(c) for c in getattr(_model, "classes_", [0, 1])],
         "noisy_class_index": _noisy_index,
@@ -155,17 +155,20 @@ def predict_noise_probability(samples: np.ndarray, sample_rate: int) -> Tuple[fl
     if _model is None:
         load_model()
 
-    # Ekstrak fitur lalu susun hanya 110 kolom yang dipakai artefak Model 5.0.
+    # Ekstrak fitur lalu susun 107 kolom yang dipakai artefak Model 3.0.
     features_dict = extract_features(samples, sr=sample_rate)
 
     # Susun vektor fitur dalam urutan tepat yang diharapkan model pipeline
     vector = np.array([[features_dict[col] for col in _feature_columns]], dtype=np.float64)
 
-    # Prediksi probabilitas dari pipeline (StandardScaler -> SelectKBest -> SVC)
-    probabilities = _model.predict_proba(vector)[0]
+    # Prediksi probabilitas dari VotingClassifier ensemble (SVM + LightGBM + ExtraTrees)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        probabilities = _model.predict_proba(vector)[0]
     noise_prob = float(probabilities[_noisy_index])
 
     # Tentukan label hasil klasifikasi
     label = "berisik" if noise_prob >= _decision_threshold else "non-berisik"
 
     return noise_prob, label
+

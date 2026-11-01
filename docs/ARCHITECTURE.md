@@ -5,7 +5,7 @@
 Dua bagian terpisah:
 
 - **Frontend (Next.js di folder `frontend/`)**: menangkap mikrofon pada 22050 Hz mono, menggambar waveform dan spektrum langsung, mengubah probabilitas menjadi skor 0–100, menjalankan logika alarm, dan memutar audio alarm.
-- **Backend (FastAPI, Python di folder `backend/`)**: memuat salinan Model 5.0 dari `backend/models/modelaudiov5.joblib`, mengekstrak 110 fitur, dan mengembalikan probabilitas berisik. Salinan ini harus identik dengan artefak training di `model5.0/`.
+- **Backend (FastAPI, Python di folder `backend/`)**: memuat salinan Model 3.0 dari `backend/models/MODEL_KLASIFIKASIV3-0.joblib`, mengekstrak 107 fitur (100 spektral + 7 rasio dinamis), dan mengembalikan probabilitas berisik. Salinan ini identik dengan artefak training di `model3.0/`.
 
 Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi dipisah ke backend Python.
 
@@ -43,7 +43,7 @@ Model berformat Python tidak bisa dijalankan di Node.js, karena itu inferensi di
 | Frontend | Next.js (App Router), TypeScript, Tailwind CSS v4 di `frontend/` |
 | Audio di browser | Web Audio API: `getUserMedia`, `AnalyserNode`, `AudioWorklet` |
 | Backend | FastAPI, Uvicorn di `backend/` |
-| ML | Model 5.0: SVC RBF + SelectKBest(k=80), 110 fitur; scikit-learn 1.6.1, joblib, numpy, librosa |
+| ML | Model 3.0: Soft-Voting Ensemble (SVM + LightGBM + ExtraTrees), 107 fitur; scikit-learn 1.6.1, lightgbm, joblib, numpy, librosa |
 | Deploy | Docker Compose di server lab pada port 8007; lihat `../DEPLOY_DOCKER.md` |
 
 ## 3. Struktur repo
@@ -54,8 +54,8 @@ Audio-clasification/
   README.md
   docs/                      # semua dokumen spesifikasi
   alrm/                      # audio alarm sumber (alarm60%.mp3, alarm80%.mp3)
-  model5.0/ # artefak training Model 5.0 (110 fitur)
-  backend/models/modelaudiov5.joblib # salinan yang dimuat backend/Docker
+  model3.0/ # artefak training Model 3.0 (107 fitur)
+  backend/models/MODEL_KLASIFIKASIV3-0.joblib # salinan yang dimuat backend/Docker
   frontend/                  # aplikasi Next.js
     app/
       layout.tsx

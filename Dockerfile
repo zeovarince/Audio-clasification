@@ -13,6 +13,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --uid 10001 appuser
 
@@ -20,7 +21,8 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=appuser:appuser backend/main.py backend/inference.py backend/features.py ./
-COPY --chown=appuser:appuser backend/models/modelaudiov5.joblib ./models/modelaudiov5.joblib
+COPY --chown=appuser:appuser backend/models/MODEL_KLASIFIKASIV3-0.joblib ./models/MODEL_KLASIFIKASIV3-0.joblib
+COPY --chown=appuser:appuser backend/models/modelaudiov3.joblib ./models/modelaudiov3.joblib
 
 USER appuser
 EXPOSE 8000

@@ -6,16 +6,16 @@ Dokumen ini menjelaskan kontrak inferensi backend yang aktif.
 
 | Item | Nilai |
 |---|---|
-| Versi aktif | Model 5.0 |
-| Artefak training | `model5.0/modelaudiov5.joblib` |
-| Artefak yang dimuat backend | `backend/models/modelaudiov5.joblib` (salinan identik) |
-| Fitur input | 110 kolom sesuai urutan `bundle["features"]` |
-| Pipeline | `StandardScaler` -> `SelectKBest(f_classif, k=80)` -> `SVC(RBF, C=3, gamma=0.025, probability=True)` |
-| Threshold keputusan | 0,50 (`bundle["threshold"]`) |
+| Versi aktif | Model 3.0 |
+| Artefak training | `model3.0/MODEL_KLASIFIKASIV3-0.joblib` |
+| Artefak yang dimuat backend | `backend/models/MODEL_KLASIFIKASIV3-0.joblib` (salinan identik) |
+| Fitur input | 107 kolom sesuai urutan `bundle["features"]` |
+| Pipeline | `VotingClassifier` (SVM k=70 bobot 0.50 + LightGBM k=60 bobot 0.30 + ExtraTrees k=65 bobot 0.20) |
+| Threshold keputusan | 0,50 (`bundle["threshold"]` default 0.50) |
 | Sample rate | 22050 Hz |
-| Runtime scikit-learn | 1.6.1 |
+| Runtime scikit-learn | 1.6.1 + LightGBM >= 4.0.0 |
 
-Backend mencari hanya `modelaudiov5.joblib` di `MODEL_DIR`. Secara default, backend lokal memakai `backend/models/`; Docker menyalin salinan backend itu ke `/app/models/`. Artefak training resmi tetap berada di `model5.0/`. Kedua file JOBLIB harus identik; backend tidak memuat artefak `.pkl`.
+Backend mencari `MODEL_KLASIFIKASIV3-0.joblib` (atau `modelaudiov3.joblib`) di `MODEL_DIR`. Secara default, backend lokal memakai `backend/models/`; Docker menyalin salinan backend itu ke `/app/models/`. Artefak training resmi tetap berada di `model3.0/`.
 
 File joblib/pickle dapat menjalankan kode saat dimuat. Gunakan hanya artefak dari repository tepercaya.
 
@@ -34,9 +34,9 @@ Frontend mengirim Float32 mono dengan `X-Audio-Format: float32le` dan `X-Sample-
 
 ## 3. Fitur inferensi
 
-`backend/features.py` menghasilkan tepat 110 nilai yang digunakan Model 5.0. Backend menyusun vektor dalam urutan `bundle["features"]`, bukan urutan kamus.
+`backend/features.py` menghasilkan tepat 107 nilai yang digunakan Model 3.0 (100 spektral/MFCC dasar + 7 rasio dinamis volume-invariant). Backend menyusun vektor dalam urutan `bundle["features"]`, bukan urutan kamus.
 
-Rumus ekstraksi harus tetap cocok dengan training Model 5.0. Nama fitur yang sama dengan rumus berbeda dapat mengubah probabilitas.
+Rumus ekstraksi harus tetap cocok dengan training Model 3.0. Nama fitur yang sama dengan rumus berbeda dapat mengubah probabilitas.
 
 ## 4. Output API
 

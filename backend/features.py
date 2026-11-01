@@ -1,4 +1,4 @@
-"""Ekstraksi 110 fitur audio yang digunakan oleh Model 5.0."""
+"""Ekstraksi 107 fitur audio yang digunakan oleh Model 3.0."""
 
 from typing import Dict
 import numpy as np
@@ -6,14 +6,14 @@ import librosa
 
 
 def extract_features(y: np.ndarray, sr: int = 22050) -> Dict[str, float]:
-    """Ekstraksi fitur kompatibel Model 5.0 dari audio mono float32.
+    """Ekstraksi fitur kompatibel Model 3.0 dari audio mono float32.
 
     Args:
         y: Sinyal audio mono float32 (amplitudo ternormalisasi -1.0 sampai 1.0)
         sr: Sample rate audio (default 22050 Hz)
 
     Returns:
-        Dictionary berisi 110 fitur numerik Model 5.0.
+        Dictionary berisi 107 fitur numerik Model 3.0.
     """
     f: Dict[str, float] = {}
     S = np.abs(librosa.stft(y, n_fft=2048, hop_length=512))
@@ -28,7 +28,7 @@ def extract_features(y: np.ndarray, sr: int = 22050) -> Dict[str, float]:
     f["snr_est"] = float(pct[-1] - pct[1])
     f["rmsdb_std"] = float(rms_db.std())
 
-    # --- 2. Frame tersunyi (noise floor) & spektral ---
+    # --- 2. Frame tersunyi & spektral dasar ---
     quiet = rms_db <= np.percentile(rms_db, 20)
     flat = librosa.feature.spectral_flatness(S=S)[0]
     cent = librosa.feature.spectral_centroid(S=S, sr=sr)[0]
@@ -49,7 +49,7 @@ def extract_features(y: np.ndarray, sr: int = 22050) -> Dict[str, float]:
         quiet_part = v[quiet[: len(v)]]
         f[f"{nama}_quiet"] = float(quiet_part.mean() if len(quiet_part) > 0 else v.mean())
 
-    # --- 3. MFCC (1 sampai 20) ---
+    # --- 3. 20 Koefisien MFCC ---
     mel = librosa.power_to_db(librosa.feature.melspectrogram(S=S**2, sr=sr, n_mels=40))
     mfcc = librosa.feature.mfcc(S=mel, n_mfcc=20)
     for i in range(20):
@@ -68,36 +68,16 @@ def extract_features(y: np.ndarray, sr: int = 22050) -> Dict[str, float]:
     for i in range(con.shape[0]):
         f[f"contrast{i + 1}"] = float(con[i].mean())
 
-    # --- 6. Fitur turunan spektral sesuai notebook training Model 5.0 ---
-    # Pertahankan definisi dan rumus ini sama dengan `ekstrak_fitur` di
-    # model5.0/klasifikasi-audioV5.ipynb; nama fitur saja tidak cukup untuk
-    # menjamin paritas antara data training dan input dari backend.
-    fft_freqs = librosa.fft_frequencies(sr=sr, n_fft=2048)
-    power_spec = S**2
-    total_power = np.sum(power_spec, axis=0) + 1e-10
-
-    hf_mask = fft_freqs >= 3000
-    hf_energy = np.sum(power_spec[hf_mask, :], axis=0)
-    f["hf_energy_ratio"] = float(np.mean(hf_energy / total_power))
+    # --- 6. Fitur Dinamis Model 3.0 (Volume-Invariant) ---
+    f["dyn_ratio"] = float(f["dyn_range"] / (f["rmsdb_std"] + 1e-5))
+    f["snr_dyn_ratio"] = float(f["snr_est"] / (f["dyn_range"] + 1e-5))
+    f["hf_energy_ratio"] = float(
+        f["contrast5"] + f["contrast6"] + f["contrast7"] - (f["contrast1"] + f["contrast2"])
+    )
     f["cent_bw_ratio"] = float(f["cent_mean"] / (f["bw_mean"] + 1e-5))
     f["roll_cent_ratio"] = float(f["roll_mean"] / (f["cent_mean"] + 1e-5))
     f["flat_cent_prod"] = float(f["flat_mean"] * f["cent_mean"])
-    f["snr_ratio_p95_p5"] = float(
-        f["rmsdb_p95"] / (abs(f["rmsdb_p5"]) + 1e-5)
-    )
-
-    # --- 7. Lima fitur tambahan sesuai notebook training Model 5.0 ---
-    f["peak_to_p50"] = float(f["rmsdb_p95"] - f["rmsdb_p50"])
-    rms_lin = np.sqrt(np.mean(y**2)) + 1e-10
-    f["crest_factor"] = float(np.max(np.abs(y)) / rms_lin)
-    f["std_sum"] = float(
-        f["rmsdb_std"] + f["cent_std"] / (f["cent_mean"] + 1e-5)
-    )
-    vocal_mask = (fft_freqs >= 300) & (fft_freqs <= 3400)
-    vocal_energy = np.sum(power_spec[vocal_mask, :], axis=0)
-    f["vocal_ratio"] = float(np.mean(vocal_energy / total_power))
-    hf_spec_mask = fft_freqs >= 4000
-    hf_spec_energy = np.sum(power_spec[hf_spec_mask, :], axis=0)
-    f["hf_spectral"] = float(np.mean(hf_spec_energy / total_power))
+    f["snr_ratio_p95_p5"] = float(f["rmsdb_p95"] / (f["rmsdb_p5"] - 1e-5))
 
     return f
+
